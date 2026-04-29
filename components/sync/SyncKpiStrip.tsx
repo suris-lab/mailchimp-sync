@@ -1,0 +1,64 @@
+import { KpiCard } from "@/components/ui/KpiCard";
+import type { SyncStats } from "@/lib/types";
+
+interface SyncKpiStripProps {
+  stats: SyncStats | undefined;
+  isLoading: boolean;
+}
+
+function fmt(n: number | undefined) {
+  return n?.toLocaleString() ?? "—";
+}
+
+function fmtTime(iso: string | null | undefined) {
+  if (!iso) return "Never";
+  return new Date(iso).toLocaleString();
+}
+
+export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-24 rounded-xl border border-gray-800 bg-gray-900 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  const statusColor =
+    stats?.last_sync_status === "success" ? "green"
+    : stats?.last_sync_status === "partial" ? "amber"
+    : stats?.last_sync_status === "error" ? "pink"
+    : "blue";
+
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <KpiCard
+        label="Total Contacts Synced"
+        value={fmt(stats?.total_ever_synced)}
+        sub="All time cumulative"
+        accent="blue"
+      />
+      <KpiCard
+        label="Last Run — New"
+        value={fmt(stats?.last_new_added)}
+        sub="Newly added to Mailchimp"
+        accent="green"
+      />
+      <KpiCard
+        label="Last Run — Updated"
+        value={fmt(stats?.last_updated)}
+        sub="Existing contacts refreshed"
+        accent="purple"
+      />
+      <KpiCard
+        label="Last Sync"
+        value={stats?.last_sync_status === "never" ? "Never" : fmtTime(stats?.last_sync_at)}
+        sub={stats?.last_errors ? `${stats.last_errors} error(s)` : "No errors"}
+        accent={statusColor}
+        badge={stats?.last_sync_status ?? "never"}
+      />
+    </div>
+  );
+}

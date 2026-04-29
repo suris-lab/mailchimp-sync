@@ -1,0 +1,19 @@
+# env
+.env.local
+.env*.local
+
+# Next.js
+.next/
+out/
+
+# deps
+node_modules/
+
+# credentials
+credentials.json
+token.json
+*.pem
+
+# misc
+.DS_Store
+.tmp/
