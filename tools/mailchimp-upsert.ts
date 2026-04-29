@@ -1,13 +1,11 @@
 import { createHash } from "crypto";
 import type { SheetContact, ContactSyncResult } from "@/lib/types";
 import { FIELD_MAP, TAG_COLUMNS, buildTagName } from "@/lib/field-map";
+import { kvGet, kvSet } from "@/lib/kv";
 
 const BATCH_SIZE = 500;
-const TAG_CONCURRENCY = 20; // concurrent tag API calls at a time
-
-// In-process cache of contact fingerprints — persists for the lifetime of the
-// server process so repeated syncs skip contacts whose data hasn't changed.
-const tagFingerprintCache = new Map<string, string>();
+const TAG_CONCURRENCY = 20;
+const KV_FINGERPRINTS = "sync:tag_fingerprints";
 
 function contactFingerprint(contact: SheetContact): string {
   const { updatedAt, changedId, interest, facility, skill, administrative } = contact;
@@ -61,7 +59,6 @@ function buildTags(contact: SheetContact): string[] {
   return tags;
 }
 
-// Run async tasks with a max concurrency cap
 async function withConcurrency<T>(
   items: T[],
   concurrency: number,
@@ -80,7 +77,7 @@ export async function upsertContacts(
   const mc = await getMailchimp();
   const results: ContactSyncResult[] = [];
 
-  // Step 1: batch upsert merge fields (add + update in one call)
+  // Step 1: batch upsert merge fields
   for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
     const batch = contacts.slice(i, i + BATCH_SIZE);
     const members = batch.map((c) => ({
@@ -102,7 +99,7 @@ export async function upsertContacts(
     }
   }
 
-  // Step 2: apply tags to successfully processed contacts, 10 at a time
+  // Step 2: apply tags — skip contacts whose tag data hasn't changed (KV-persisted fingerprints)
   const successEmails = new Set(
     results.filter((r) => r.status !== "error").map((r) => r.email.toLowerCase())
   );
@@ -110,22 +107,29 @@ export async function upsertContacts(
     (c) => successEmails.has(c.email.toLowerCase()) && buildTags(c).length > 0
   );
 
+  // Load persisted fingerprints — survives cold starts unlike an in-process Map
+  const savedFingerprints = (await kvGet<Record<string, string>>(KV_FINGERPRINTS)) ?? {};
+  const updatedFingerprints: Record<string, string> = { ...savedFingerprints };
+
   const tagErrors: string[] = [];
   await withConcurrency(contactsWithTags, TAG_CONCURRENCY, async (contact) => {
+    const email = contact.email.toLowerCase();
     const fp = contactFingerprint(contact);
-    if (tagFingerprintCache.get(contact.email) === fp) return; // unchanged since last run
+    if (savedFingerprints[email] === fp) return; // unchanged — skip API call
     try {
       const hash = emailMd5(contact.email);
       await (mc.lists as any).updateListMemberTags(audienceId, hash, {
         tags: buildTags(contact).map((name) => ({ name, status: "active" })),
       });
-      tagFingerprintCache.set(contact.email, fp);
+      updatedFingerprints[email] = fp;
     } catch (err) {
       tagErrors.push(`tag:${contact.email}: ${String(err)}`);
     }
   });
 
-  // Surface tag errors into results
+  // Persist updated fingerprints for the next sync
+  await kvSet(KV_FINGERPRINTS, updatedFingerprints);
+
   for (const errMsg of tagErrors) {
     const email = errMsg.split(":")[1]?.trim() ?? "unknown";
     results.push({ email, status: "error", error: errMsg });

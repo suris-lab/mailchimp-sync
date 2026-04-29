@@ -20,6 +20,20 @@ export async function shouldSkipCronSync(): Promise<boolean> {
   return elapsed < schedule.interval_minutes;
 }
 
+// Parse date strings including DD/MM/YYYY (common in HK/AU sheets)
+function parseDate(s: string): number {
+  if (!s) return NaN;
+  let t = new Date(s).getTime();
+  if (!isNaN(t)) return t;
+  // DD/MM/YYYY or D/M/YYYY
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    t = new Date(`${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`).getTime();
+    if (!isNaN(t)) return t;
+  }
+  return NaN;
+}
+
 // Filter to contacts changed since the last sync using the UpdatedAt column.
 // Falls back to the full list when UpdatedAt is missing or unparseable.
 function filterChanged(contacts: SheetContact[], lastSyncAt: string | null): SheetContact[] {
@@ -28,20 +42,18 @@ function filterChanged(contacts: SheetContact[], lastSyncAt: string | null): She
   const lastSyncMs = new Date(lastSyncAt).getTime();
   if (isNaN(lastSyncMs)) return contacts;
 
-  const changed = contacts.filter((c) => {
+  return contacts.filter((c) => {
     if (!c.updatedAt) return true; // no date — include to be safe
-    const updatedMs = new Date(c.updatedAt).getTime();
+    const updatedMs = parseDate(c.updatedAt);
     return isNaN(updatedMs) || updatedMs >= lastSyncMs;
   });
-
-  // If nothing changed, still return empty so we log a 0-contact sync
-  return changed;
 }
 
 export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<SyncLog> {
   const start = Date.now();
   const id = randomUUID();
 
+  let total_contacts = 0;
   let contacts_processed = 0;
   let new_added = 0;
   let updated = 0;
@@ -64,6 +76,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     };
 
     // 3. Incremental: only process contacts updated since last sync
+    total_contacts = allContacts.length;
     const contacts = filterChanged(allContacts, prevStats.last_sync_at);
     contacts_processed = contacts.length;
 
@@ -103,6 +116,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     id,
     timestamp: new Date().toISOString(),
     triggered_by: triggeredBy,
+    total_contacts,
     contacts_processed,
     new_added,
     updated,

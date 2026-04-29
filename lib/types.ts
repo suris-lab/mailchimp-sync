@@ -30,7 +30,8 @@ export interface SyncLog {
   id: string;
   timestamp: string;
   triggered_by: "webhook" | "cron" | "manual";
-  contacts_processed: number;
+  total_contacts: number;       // total rows in sheet
+  contacts_processed: number;   // after incremental filter
   new_added: number;
   updated: number;
   errors: number;

@@ -59,6 +59,7 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
           <tr className="border-b border-gray-800 bg-gray-900">
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Time</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Trigger</th>
+            <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">Total</th>
             <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">Processed</th>
             <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">New</th>
             <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">Updated</th>
@@ -81,6 +82,7 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-4 py-3">{triggeredByBadge(log.triggered_by)}</td>
+                  <td className="px-4 py-3 text-right text-gray-500">{(log.total_contacts ?? "—").toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-gray-300">{log.contacts_processed.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-emerald-400">{log.new_added.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-purple-400">{log.updated.toLocaleString()}</td>
@@ -102,7 +104,7 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
                 </tr>
                 {isExpanded && (
                   <tr key={`${log.id}-errors`} className="bg-red-950/20">
-                    <td colSpan={8} className="px-4 py-3">
+                    <td colSpan={9} className="px-4 py-3">
                       <p className="text-xs font-medium text-red-400 mb-2">Error details ({log.error_details.length})</p>
                       <ul className="space-y-1">
                         {log.error_details.map((detail, i) => (
