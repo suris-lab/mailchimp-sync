@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, kvDel } from "@/lib/kv";
 import { runSync } from "@/tools/sync-engine";
 
+export const maxDuration = 10;
+
 const KV_LOCK = "sync:lock";
 const LOCK_TTL_SECONDS = 120;
 

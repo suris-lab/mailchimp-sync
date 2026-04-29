@@ -4,13 +4,5 @@
       "path": "/api/sync",
       "schedule": "0 0 * * *"
     }
-  ],
-  "functions": {
-    "app/api/sync/route.ts": {
-      "maxDuration": 60
-    },
-    "app/api/webhook/route.ts": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }

@@ -3,6 +3,8 @@ import { kvGet, kvSet, kvDel } from "@/lib/kv";
 import { runSync, shouldSkipCronSync } from "@/tools/sync-engine";
 import type { SyncLog } from "@/lib/types";
 
+export const maxDuration = 60;
+
 const KV_LOCK = "sync:lock";
 const LOCK_TTL_SECONDS = 120;
 
