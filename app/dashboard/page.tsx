@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Settings } from "lucide-react";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SyncKpiStrip } from "@/components/sync/SyncKpiStrip";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
 import { ManualSyncButton } from "@/components/sync/ManualSyncButton";
-import { SchedulePanel } from "@/components/sync/SchedulePanel";
 import { useSyncStats } from "@/hooks/useSyncStats";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 
@@ -34,13 +34,13 @@ export default function DashboardPage() {
             <p className="text-xs text-gray-400 mt-0.5">Real-time contact sync dashboard</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => document.getElementById("sync-schedule")?.scrollIntoView({ behavior: "smooth" })}
-              title="Settings"
-              className="rounded-lg border border-gray-700 p-2 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
             >
-              <Settings size={14} />
-            </button>
+              <Settings size={13} />
+              Settings
+            </Link>
             <ManualSyncButton />
           </div>
         </div>
@@ -54,15 +54,6 @@ export default function DashboardPage() {
             subtitle="Auto-refreshes every 30 seconds"
           />
           <SyncKpiStrip stats={stats} isLoading={statsLoading} />
-        </section>
-
-        {/* Schedule */}
-        <section id="sync-schedule">
-          <SectionHeader
-            title="Sync Schedule"
-            subtitle="Auto-sync runs via Vercel cron — manual and webhook syncs always run immediately"
-          />
-          <SchedulePanel lastSyncAt={stats?.last_sync_at} />
         </section>
 
         {/* Sync Log */}
