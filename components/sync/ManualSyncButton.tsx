@@ -22,8 +22,8 @@ export function ManualSyncButton() {
       } else {
         setMessage({ text: data.error ?? "Sync failed", ok: false });
       }
-    } catch {
-      setMessage({ text: "Network error", ok: false });
+    } catch (err) {
+      setMessage({ text: `Request failed: ${String(err)}`, ok: false });
     } finally {
       setLoading(false);
     }
