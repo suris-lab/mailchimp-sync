@@ -10,67 +10,46 @@ export function ManualSyncButton() {
 
   async function handleSync() {
     setLoading(true);
-    setMessage({ text: "Starting…", ok: true });
+    setMessage({ text: "Syncing…", ok: true });
 
     try {
-      // Snapshot the current sync time so we know when a new one completes
-      const statsBefore = await fetch("/api/sync-stats")
-        .then((r) => r.json())
-        .catch(() => null);
-      const prevSyncAt: string | null = statsBefore?.last_sync_at ?? null;
-
-      // Trigger sync — returns 202 immediately, runs in background
       const res = await fetch("/api/sync", { method: "POST" });
+      const body = await res.json();
 
       if (res.status === 409) {
-        setMessage({ text: "Sync already in progress — wait a moment", ok: false });
-        setLoading(false);
+        setMessage({ text: "Sync already in progress — try again in a moment", ok: false });
         return;
       }
 
-      setMessage({ text: "Syncing…", ok: true });
+      if (!res.ok || body.error) {
+        setMessage({ text: `Sync failed: ${body.error ?? res.statusText}`, ok: false });
+        return;
+      }
 
-      // Poll /api/sync-stats every 3 s until last_sync_at changes
-      let attempts = 0;
-      const interval = setInterval(async () => {
-        attempts++;
-        if (attempts > 30) {
-          // 90 seconds max — if still no update, sync likely timed out on server
-          clearInterval(interval);
-          setLoading(false);
-          setMessage({ text: "Sync timed out — check /api/debug or Vercel logs", ok: false });
-          return;
-        }
+      const log = body.log;
+      const skipped = log?.status === "skipped";
+      const isError = log?.status === "error";
 
-        try {
-          const stats = await fetch("/api/sync-stats").then((r) => r.json());
-          if (stats.last_sync_at && stats.last_sync_at !== prevSyncAt) {
-            clearInterval(interval);
-            setLoading(false);
-            const skipped = stats.last_sync_status === "skipped";
-            const ok = stats.last_sync_status !== "error";
-            setMessage({
-              text: skipped
-                ? "No changes — Mailchimp is already up to date"
-                : ok
-                ? `Done — ${stats.last_new_added} new, ${stats.last_updated} updated`
-                : `Finished with errors — ${stats.last_errors} failed`,
-              ok: ok || skipped,
-            });
-            await mutate("/api/sync-stats");
-            await mutate(
-              (key) => typeof key === "string" && key.startsWith("/api/sync-logs"),
-              undefined,
-              { revalidate: true }
-            );
-          }
-        } catch {
-          // ignore transient poll failures
-        }
-      }, 3000);
+      setMessage({
+        text: skipped
+          ? "No changes — Mailchimp is already up to date"
+          : isError
+          ? `Finished with errors — ${log.errors} failed`
+          : `Done — ${log?.new_added ?? 0} new, ${log?.updated ?? 0} updated`,
+        ok: !isError,
+      });
+
+      await mutate("/api/sync-stats");
+      await mutate(
+        (key) => typeof key === "string" && key.startsWith("/api/sync-logs"),
+        undefined,
+        { revalidate: true }
+      );
+      await mutate("/api/audience-stats");
     } catch (err) {
+      setMessage({ text: `Could not reach server: ${String(err)}`, ok: false });
+    } finally {
       setLoading(false);
-      setMessage({ text: `Could not start sync: ${String(err)}`, ok: false });
     }
   }
 

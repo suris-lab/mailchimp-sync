@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, kvDel } from "@/lib/kv";
 import { runSync, shouldSkipCronSync } from "@/tools/sync-engine";
 import type { SyncLog } from "@/lib/types";
@@ -25,15 +25,12 @@ export async function POST(req: NextRequest) {
 
   await kvSet(KV_LOCK, true, LOCK_TTL_SECONDS);
 
-  // Return 202 immediately — sync runs after the response is sent so it
-  // never hits the Vercel function timeout limit.
-  after(async () => {
-    try {
-      await runSync(triggeredBy);
-    } finally {
-      await kvDel(KV_LOCK);
-    }
-  });
-
-  return NextResponse.json({ accepted: true }, { status: 202 });
+  try {
+    const log = await runSync(triggeredBy);
+    return NextResponse.json({ accepted: true, log });
+  } catch (err) {
+    return NextResponse.json({ accepted: true, error: String(err) }, { status: 500 });
+  } finally {
+    await kvDel(KV_LOCK);
+  }
 }
