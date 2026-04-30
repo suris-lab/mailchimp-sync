@@ -169,13 +169,13 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
       await kvSet(KV_CONTACT_FP, updatedFp);
     }
 
+    if (errors > 0 && errors < contacts_processed) status = "partial";
+    else if (contacts_processed > 0 && errors === contacts_processed) status = "error";
+
     // Save the sheet's modified timestamp so the next sync can skip if unchanged
     if (sheetModifiedAt && status !== "error") {
       await kvSet(KV_SHEET_MODIFIED, sheetModifiedAt);
     }
-
-    if (errors > 0 && errors < contacts_processed) status = "partial";
-    else if (contacts_processed > 0 && errors === contacts_processed) status = "error";
   } catch (err) {
     status = "error";
     error_details.push(String(err));
