@@ -71,6 +71,13 @@ export interface AudienceStats {
   };
 }
 
+// Daily new-contact growth data for the past 60 days
+export interface GrowthStats {
+  last30Days: number;
+  last60Days: number;
+  dailyNew: { date: string; value: number }[]; // 60 entries, chronological
+}
+
 // User-configured auto-sync schedule
 export type ScheduleInterval = -1 | 0 | 30 | 60 | 360 | 720 | 1440; // -1 = real-time (Apps Script), 0 = manual only
 

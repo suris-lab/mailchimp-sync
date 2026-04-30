@@ -45,6 +45,7 @@ export function ManualSyncButton() {
         { revalidate: true },
       );
       await mutate("/api/audience-stats");
+      await mutate("/api/growth-stats");
     } catch (err) {
       setMessage({ text: String(err), ok: false });
     } finally {
