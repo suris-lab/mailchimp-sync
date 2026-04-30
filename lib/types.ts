@@ -71,11 +71,13 @@ export interface AudienceStats {
   };
 }
 
-// Daily new-contact growth data for the past 60 days
+// Daily new-contact growth data — current window + previous window for comparison
 export interface GrowthStats {
-  last30Days: number;
-  last60Days: number;
-  dailyNew: { date: string; value: number }[]; // 60 entries, chronological
+  last30Days: number;   // new contacts in most-recent 30 days
+  last60Days: number;   // new contacts in most-recent 60 days
+  prev30Days: number;   // new contacts in the 30 days before that (days 31–60)
+  prev60Days: number;   // new contacts in the 60 days before that (days 61–120)
+  dailyNew: { date: string; value: number }[]; // 120 entries, chronological
 }
 
 // User-configured auto-sync schedule
