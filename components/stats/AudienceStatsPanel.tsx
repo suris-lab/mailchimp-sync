@@ -151,44 +151,46 @@ function TagPieChart({ data }: { data: Record<string, number> }) {
     return <p className="py-10 text-center text-xs text-gray-300 dark:text-gray-600">No data</p>;
   }
 
-  const chartH = tc.mobile ? 260 : 320;
+  const chartH = tc.mobile ? 280 : 340;
   const innerR = tc.mobile ? 42 : 55;
   const outerR = tc.mobile ? 72 : 92;
 
   return (
-    <ResponsiveContainer width="100%" height={chartH}>
-      <PieChart>
-        <Pie
-          data={slices}
-          cx="50%"
-          cy="44%"
-          innerRadius={innerR}
-          outerRadius={outerR}
-          paddingAngle={2}
-          dataKey="value"
-          label={renderLabel}
-          labelLine={{ stroke: tc.tickColor, strokeWidth: 1 }}
-          isAnimationActive
-        >
-          {slices.map((_, i) => (
-            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
-          ))}
-        </Pie>
-        <Tooltip
-          content={({ active, payload }) => (
-            <PieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
-          )}
-        />
-        <Legend
-          iconType="circle"
-          iconSize={6}
-          wrapperStyle={{ paddingTop: 8, fontSize: 10 }}
-          formatter={(value: string) => (
-            <span style={{ color: tc.labelColor, fontSize: 10 }}>{value}</span>
-          )}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div className="[&_svg]:overflow-visible">
+      <ResponsiveContainer width="100%" height={chartH}>
+        <PieChart>
+          <Pie
+            data={slices}
+            cx="50%"
+            cy="47%"
+            innerRadius={innerR}
+            outerRadius={outerR}
+            paddingAngle={2}
+            dataKey="value"
+            label={renderLabel}
+            labelLine={{ stroke: tc.tickColor, strokeWidth: 1 }}
+            isAnimationActive
+          >
+            {slices.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
+            ))}
+          </Pie>
+          <Tooltip
+            content={({ active, payload }) => (
+              <PieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
+            )}
+          />
+          <Legend
+            iconType="circle"
+            iconSize={6}
+            wrapperStyle={{ paddingTop: 8, fontSize: 10 }}
+            formatter={(value: string) => (
+              <span style={{ color: tc.labelColor, fontSize: 10 }}>{value}</span>
+            )}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -228,46 +230,48 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
     );
   }
 
-  const chartH = tc.mobile ? 260 : 320;
+  const chartH = tc.mobile ? 280 : 340;
   const innerR = tc.mobile ? 42 : 55;
   const outerR = tc.mobile ? 72 : 92;
 
   return (
     <div>
       <div className="mb-3">{toggleBtn}</div>
-      <ResponsiveContainer width="100%" height={chartH}>
-        <PieChart>
-          <Pie
-            data={slices}
-            cx="50%"
-            cy="44%"
-            innerRadius={innerR}
-            outerRadius={outerR}
-            paddingAngle={2}
-            dataKey="value"
-            label={renderLabel}
-            labelLine={{ stroke: tc.tickColor, strokeWidth: 1 }}
-            isAnimationActive
-          >
-            {slices.map((_, i) => (
-              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
-            ))}
-          </Pie>
-          <Tooltip
-            content={({ active, payload }) => (
-              <PieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
-            )}
-          />
-          <Legend
-            iconType="circle"
-            iconSize={6}
-            wrapperStyle={{ paddingTop: 8, fontSize: 10 }}
-            formatter={(value: string) => (
-              <span style={{ color: tc.labelColor, fontSize: 10 }}>{value}</span>
-            )}
-          />
-        </PieChart>
-      </ResponsiveContainer>
+      <div className="[&_svg]:overflow-visible">
+        <ResponsiveContainer width="100%" height={chartH}>
+          <PieChart>
+            <Pie
+              data={slices}
+              cx="50%"
+              cy="47%"
+              innerRadius={innerR}
+              outerRadius={outerR}
+              paddingAngle={2}
+              dataKey="value"
+              label={renderLabel}
+              labelLine={{ stroke: tc.tickColor, strokeWidth: 1 }}
+              isAnimationActive
+            >
+              {slices.map((_, i) => (
+                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
+              ))}
+            </Pie>
+            <Tooltip
+              content={({ active, payload }) => (
+                <PieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
+              )}
+            />
+            <Legend
+              iconType="circle"
+              iconSize={6}
+              wrapperStyle={{ paddingTop: 8, fontSize: 10 }}
+              formatter={(value: string) => (
+                <span style={{ color: tc.labelColor, fontSize: 10 }}>{value}</span>
+              )}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
