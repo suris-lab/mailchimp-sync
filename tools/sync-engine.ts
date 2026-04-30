@@ -52,7 +52,8 @@ async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> 
 
 export async function shouldSkipCronSync(): Promise<boolean> {
   const schedule = await kvGet<SyncSchedule>(KV_SCHEDULE);
-  if (!schedule || schedule.interval_minutes <= 0) return true;
+  if (!schedule) return false; // no schedule set → let cron run freely
+  if (schedule.interval_minutes <= 0) return true;
 
   const stats = await kvGet<SyncStats>(KV_STATS);
   if (!stats?.last_sync_at) return false;

@@ -82,11 +82,35 @@ function ChartTooltip({
 // ── Membership — donut with visible % labels ──────────────────────────────────
 function MembershipPieChart({ data }: { data: Record<string, number> }) {
   const tc = useThemeColors();
-  const slices = groupSmallSlices(data);
+  const [excludeNonMembers, setExcludeNonMembers] = useState(false);
+
+  const filteredData = excludeNonMembers
+    ? Object.fromEntries(Object.entries(data).filter(([k]) => !k.toLowerCase().includes("non")))
+    : data;
+
+  const slices = groupSmallSlices(filteredData);
   const total = slices.reduce((s, d) => s + d.value, 0);
 
+  const toggleBtn = (
+    <button
+      onClick={() => setExcludeNonMembers((v) => !v)}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
+        excludeNonMembers
+          ? "bg-hebe-red text-white"
+          : "bg-hebe-ink/8 text-hebe-ink/50 dark:bg-gray-700 dark:text-gray-400 hover:text-hebe-red dark:hover:text-hebe-red"
+      }`}
+    >
+      {excludeNonMembers ? "Non-members hidden" : "Include non-members"}
+    </button>
+  );
+
   if (slices.length === 0) {
-    return <p className="py-10 text-center text-xs text-hebe-ink/30 dark:text-hebe-champagne/30">No data</p>;
+    return (
+      <div>
+        <div className="mb-3">{toggleBtn}</div>
+        <p className="py-10 text-center text-xs text-hebe-ink/30 dark:text-gray-600">No data</p>
+      </div>
+    );
   }
 
   // Render % label outside each slice (skip tiny slices to avoid overlap)
@@ -116,6 +140,8 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
   const outerR = tc.mobile ? 78 : 100;
 
   return (
+    <div>
+      <div className="mb-3">{toggleBtn}</div>
     <ResponsiveContainer width="100%" height={chartH}>
       <PieChart>
         <Pie
@@ -149,6 +175,7 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
         />
       </PieChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -170,8 +197,8 @@ function InteractiveBarSection({
   if (sorted.length === 0) {
     return (
       <div className="card p-4">
-        <p className="text-xs font-semibold text-hebe-ink/50 dark:text-hebe-champagne/50 mb-3">{title}</p>
-        <p className="text-xs text-hebe-ink/30 dark:text-hebe-champagne/30">No data</p>
+        <p className="text-xs font-semibold text-hebe-ink/50 dark:text-gray-500 mb-3">{title}</p>
+        <p className="text-xs text-hebe-ink/30 dark:text-gray-600">No data</p>
       </div>
     );
   }
@@ -183,8 +210,8 @@ function InteractiveBarSection({
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold text-hebe-ink/60 dark:text-hebe-champagne/60">{title}</p>
-        <span className="text-[10px] text-hebe-ink/30 dark:text-hebe-champagne/30">{sorted.length} values</span>
+        <p className="text-xs font-semibold text-hebe-ink/60 dark:text-gray-400">{title}</p>
+        <span className="text-[10px] text-hebe-ink/30 dark:text-gray-600">{sorted.length} values</span>
       </div>
       <ResponsiveContainer width="100%" height={chartH}>
         <BarChart
@@ -220,7 +247,7 @@ function InteractiveBarSection({
       {sorted.length > 5 && (
         <button
           onClick={() => setShowAll((v) => !v)}
-          className="mt-2 flex items-center gap-1 text-[11px] text-hebe-ink/40 dark:text-hebe-champagne/40 hover:text-hebe-red transition-colors"
+          className="mt-2 flex items-center gap-1 text-[11px] text-hebe-ink/40 dark:text-gray-500 hover:text-hebe-red transition-colors"
         >
           {showAll ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
           {showAll ? "Show less" : `Show ${sorted.length - 5} more`}
@@ -257,7 +284,7 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
   if (!stats) {
     return (
       <div className="card p-8 text-center">
-        <p className="text-sm text-hebe-ink/40 dark:text-hebe-champagne/40">
+        <p className="text-sm text-hebe-ink/40 dark:text-gray-500">
           No stats yet — run a sync to compute audience insights.
         </p>
       </div>
@@ -275,29 +302,29 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
             <Users size={14} className="text-hebe-red" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hebe-ink/50 dark:text-hebe-champagne/50">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-hebe-ink/50 dark:text-gray-500">
               On Mailchimp
             </p>
-            <p className="text-xl sm:text-2xl font-bold font-serif text-hebe-ink dark:text-hebe-cream mt-1">
+            <p className="text-xl sm:text-2xl font-bold font-serif text-hebe-ink dark:text-white mt-1">
               {stats.total_mailchimp_members.toLocaleString()}
             </p>
-            <p className="text-[10px] text-hebe-ink/40 dark:text-hebe-champagne/40 mt-0.5 hidden sm:block">
+            <p className="text-[10px] text-hebe-ink/40 dark:text-gray-500 mt-0.5 hidden sm:block">
               Subscribed members
             </p>
           </div>
         </div>
         <div className="card p-4 flex items-start gap-3">
           <div className="rounded-lg bg-hebe-navy/10 p-2 shrink-0">
-            <Sheet size={14} className="text-hebe-navy dark:text-hebe-champagne" />
+            <Sheet size={14} className="text-hebe-navy dark:text-gray-300" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hebe-ink/50 dark:text-hebe-champagne/50">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-hebe-ink/50 dark:text-gray-500">
               In Sheet
             </p>
-            <p className="text-xl sm:text-2xl font-bold font-serif text-hebe-ink dark:text-hebe-cream mt-1">
+            <p className="text-xl sm:text-2xl font-bold font-serif text-hebe-ink dark:text-white mt-1">
               {stats.total_sheet_contacts.toLocaleString()}
             </p>
-            <p className="text-[10px] text-hebe-ink/40 dark:text-hebe-champagne/40 mt-0.5 hidden sm:block">
+            <p className="text-[10px] text-hebe-ink/40 dark:text-gray-500 mt-0.5 hidden sm:block">
               Computed {new Date(stats.computed_at).toLocaleString()}
             </p>
           </div>
@@ -306,8 +333,8 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
 
       {/* Membership — donut with % labels visible without hover */}
       <div className="card p-4">
-        <p className="text-xs font-semibold text-hebe-ink/60 dark:text-hebe-champagne/60">Membership</p>
-        <p className="text-[10px] text-hebe-ink/35 dark:text-hebe-champagne/35 mt-0.5 mb-1">
+        <p className="text-xs font-semibold text-hebe-ink/60 dark:text-gray-400">Membership</p>
+        <p className="text-[10px] text-hebe-ink/35 dark:text-gray-500 mt-0.5 mb-1">
           % shown on each slice · hover for contact count
         </p>
         <MembershipPieChart data={stats.membership} />

@@ -8,6 +8,37 @@ export const maxDuration = 60;
 const KV_LOCK = "sync:lock";
 const LOCK_TTL_SECONDS = 120;
 
+export async function GET(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  if (secret) {
+    const auth = req.headers.get("authorization");
+    if (auth !== `Bearer ${secret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
+  const skip = await shouldSkipCronSync();
+  if (skip) {
+    return NextResponse.json({ accepted: false, reason: "Not due yet per schedule" });
+  }
+
+  const lock = await kvGet<boolean>(KV_LOCK);
+  if (lock) {
+    return NextResponse.json({ accepted: false, reason: "Sync already in progress" }, { status: 409 });
+  }
+
+  await kvSet(KV_LOCK, true, LOCK_TTL_SECONDS);
+
+  try {
+    const log = await runSync("cron");
+    return NextResponse.json({ accepted: true, log });
+  } catch (err) {
+    return NextResponse.json({ accepted: true, error: String(err) }, { status: 500 });
+  } finally {
+    await kvDel(KV_LOCK);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const triggeredBy = (req.headers.get("x-triggered-by") as SyncLog["triggered_by"]) ?? "manual";
 

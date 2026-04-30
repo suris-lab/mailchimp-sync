@@ -19,13 +19,13 @@ function daysAgo(n: number) {
 }
 
 const inputCls =
-  "rounded-lg border border-hebe-ink/15 bg-white dark:bg-hebe-deep-2 dark:border-hebe-deep-3 " +
-  "px-2.5 py-1.5 text-xs text-hebe-ink dark:text-hebe-cream w-full " +
+  "rounded-lg border border-hebe-ink/15 bg-white dark:bg-gray-900 dark:border-gray-800 " +
+  "px-2.5 py-1.5 text-xs text-hebe-ink dark:text-white w-full " +
   "focus:border-hebe-red dark:focus:border-hebe-red focus:outline-none transition-colors";
 
 const presetCls =
-  "rounded-lg border border-hebe-ink/15 dark:border-hebe-deep-3 bg-white dark:bg-hebe-deep-2 " +
-  "px-2.5 py-1.5 text-xs text-hebe-ink/60 dark:text-hebe-champagne/60 " +
+  "rounded-lg border border-hebe-ink/15 dark:border-gray-800 bg-white dark:bg-gray-900 " +
+  "px-2.5 py-1.5 text-xs text-hebe-ink/60 dark:text-gray-400 " +
   "hover:border-hebe-red hover:text-hebe-red transition-colors";
 
 export function DateRangePicker({ start, end, onChange }: DateRangePickerProps) {
@@ -55,7 +55,7 @@ export function DateRangePicker({ start, end, onChange }: DateRangePickerProps) 
           onChange={(e) => onChange(e.target.value, end)}
           className={inputCls}
         />
-        <span className="shrink-0 text-hebe-ink/30 dark:text-hebe-champagne/30 text-xs">→</span>
+        <span className="shrink-0 text-hebe-ink/30 dark:text-gray-600 text-xs">→</span>
         <input
           type="date"
           value={end}

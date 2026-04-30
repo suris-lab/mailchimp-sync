@@ -6,8 +6,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const lora = Lora({ subsets: ["latin"], variable: "--font-lora" });
 
 export const metadata: Metadata = {
-  title: "HHYC · Sheets → Mailchimp Sync",
-  description: "Hebe Haven Yacht Club — real-time Google Sheets to Mailchimp contact sync",
+  title: "HHYC · HHYC CRM Touchpoint System",
+  description: "Hebe Haven Yacht Club — HHYC member database sync and CRM touchpoint system",
 };
 
 // Injected before React hydrates to prevent FOUC

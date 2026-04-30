@@ -20,7 +20,7 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 rounded-xl border border-hebe-champagne/20 dark:border-hebe-deep-3 bg-white dark:bg-hebe-deep-2 animate-pulse" />
+          <div key={i} className="h-24 rounded-xl border border-hebe-champagne/20 dark:border-gray-800 bg-white dark:bg-gray-900 animate-pulse" />
         ))}
       </div>
     );

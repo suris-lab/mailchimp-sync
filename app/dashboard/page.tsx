@@ -30,11 +30,11 @@ export default function DashboardPage() {
   const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
 
   return (
-    <div className="min-h-full bg-hebe-cream dark:bg-hebe-deep">
+    <div className="min-h-full bg-hebe-cream dark:bg-gray-950">
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-20 border-b border-hebe-champagne/20 dark:border-hebe-deep-3
-                         bg-white/95 dark:bg-hebe-deep-2/95 backdrop-blur-sm px-4 sm:px-6 py-3">
+      <header className="sticky top-0 z-20 border-b border-hebe-champagne/20 dark:border-gray-800
+                         bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm px-4 sm:px-6 py-3">
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-3">
 
           {/* Brand */}
@@ -47,13 +47,13 @@ export default function DashboardPage() {
               className="object-contain shrink-0 drop-shadow-sm"
             />
             <div className="min-w-0">
-              <p className="font-serif text-xs sm:text-sm font-semibold tracking-wide text-hebe-ink dark:text-hebe-cream truncate leading-tight">
+              <p className="font-serif text-xs sm:text-sm font-semibold tracking-wide text-hebe-ink dark:text-white truncate leading-tight">
                 {/* Abbreviated on very small screens */}
                 <span className="sm:hidden">HHYC</span>
                 <span className="hidden sm:inline">Hebe Haven Yacht Club</span>
               </p>
-              <p className="text-[9px] sm:text-[10px] text-hebe-ink/45 dark:text-hebe-champagne/50 leading-tight mt-0.5 hidden xs:block">
-                Sheets → Mailchimp
+              <p className="text-[9px] sm:text-[10px] text-hebe-ink/45 dark:text-gray-500 leading-tight mt-0.5 hidden xs:block">
+                HHYC CRM Touchpoint System
               </p>
             </div>
           </div>
@@ -63,8 +63,8 @@ export default function DashboardPage() {
             <ThemeToggle />
             <Link
               href="/settings"
-              className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-hebe-ink/15 dark:border-hebe-deep-3
-                         px-2.5 py-2 text-xs text-hebe-ink/60 dark:text-hebe-champagne/60
+              className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-hebe-ink/15 dark:border-gray-800
+                         px-2.5 py-2 text-xs text-hebe-ink/60 dark:text-gray-400
                          hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
                          transition-colors"
             >
@@ -114,8 +114,8 @@ export default function DashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-hebe-champagne/20 dark:border-hebe-deep-3 py-5 px-4 text-center">
-        <p className="text-[9px] sm:text-[10px] text-hebe-ink/30 dark:text-hebe-champagne/30 font-serif tracking-widest uppercase">
+      <footer className="mt-12 border-t border-hebe-champagne/20 dark:border-gray-800 py-5 px-4 text-center">
+        <p className="text-[9px] sm:text-[10px] text-hebe-ink/30 dark:text-gray-600 font-serif tracking-widest uppercase">
           Hebe Haven Yacht Club · Est. 1963 · Pak Sha Wan, Sai Kung
         </p>
       </footer>

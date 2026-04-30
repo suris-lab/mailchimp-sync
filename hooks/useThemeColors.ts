@@ -5,12 +5,9 @@ import { useEffect, useState } from "react";
 export interface ThemeColors {
   dark: boolean;
   mobile: boolean;
-  // chart axes / labels (always visible without hover)
   tickColor: string;
   labelColor: string;
-  // recharts cursor highlight
   cursorFill: string;
-  // tooltip (shown on hover)
   tooltipBg: string;
   tooltipBorder: string;
   tooltipTitle: string;
@@ -18,14 +15,15 @@ export interface ThemeColors {
   tooltipAccent: string;
 }
 
+// Gray-950/900 dark mode — matches pre-brand dashboard palette
 const DARK: Omit<ThemeColors, "dark" | "mobile"> = {
-  tickColor:     "rgba(214,203,147,0.55)",
-  labelColor:    "#D6CB93",
-  cursorFill:    "rgba(214,203,147,0.07)",
-  tooltipBg:     "#0f1448",
-  tooltipBorder: "#1a2160",
-  tooltipTitle:  "#fefdf8",
-  tooltipMuted:  "rgba(214,203,147,0.6)",
+  tickColor:     "#6b7280", // gray-500
+  labelColor:    "#9ca3af", // gray-400
+  cursorFill:    "rgba(75,85,99,0.25)",
+  tooltipBg:     "#111827", // gray-900
+  tooltipBorder: "#374151", // gray-700
+  tooltipTitle:  "#ffffff",
+  tooltipMuted:  "#9ca3af", // gray-400
   tooltipAccent: "#eb0029",
 };
 

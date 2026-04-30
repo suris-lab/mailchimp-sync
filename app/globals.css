@@ -10,7 +10,7 @@
 
   /* Dark mode */
   .dark body {
-    @apply bg-hebe-deep text-hebe-cream;
+    @apply bg-gray-950 text-gray-100;
   }
 
   /* Smooth theme transitions */
@@ -37,10 +37,10 @@
 
   /* Card surface helpers */
   .card {
-    @apply rounded-xl border border-hebe-champagne/20 bg-white dark:bg-hebe-deep-2 dark:border-hebe-deep-3;
+    @apply rounded-xl border border-hebe-champagne/20 bg-white dark:bg-gray-900 dark:border-gray-800;
   }
 
   .card-header {
-    @apply bg-white border-b border-hebe-champagne/20 dark:bg-hebe-deep-2 dark:border-hebe-deep-3;
+    @apply bg-white border-b border-hebe-champagne/20 dark:bg-gray-900 dark:border-gray-800;
   }
 }
