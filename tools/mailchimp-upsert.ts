@@ -4,7 +4,7 @@ import { FIELD_MAP, TAG_COLUMNS, buildTagName } from "@/lib/field-map";
 import { kvGet, kvSet } from "@/lib/kv";
 
 const BATCH_SIZE = 500;
-const TAG_CONCURRENCY = 20;
+const TAG_CONCURRENCY = 10; // Mailchimp allows max 10 simultaneous connections
 const KV_FINGERPRINTS = "sync:tag_fingerprints";
 
 function contactFingerprint(contact: SheetContact): string {
@@ -57,6 +57,25 @@ function buildTags(contact: SheetContact): string[] {
     }
   }
   return tags;
+}
+
+async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 4, baseMs = 1000): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const is429 =
+        String(err).includes("Too Many Requests") ||
+        (err as any)?.status === 429 ||
+        (err as any)?.statusCode === 429;
+      if (is429 && attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, baseMs * 2 ** attempt)); // 1s, 2s, 4s, 8s
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("retryWithBackoff: unreachable");
 }
 
 async function withConcurrency<T>(
@@ -118,9 +137,11 @@ export async function upsertContacts(
     if (savedFingerprints[email] === fp) return; // unchanged — skip API call
     try {
       const hash = emailMd5(contact.email);
-      await (mc.lists as any).updateListMemberTags(audienceId, hash, {
-        tags: buildTags(contact).map((name) => ({ name, status: "active" })),
-      });
+      await retryWithBackoff(() =>
+        (mc.lists as any).updateListMemberTags(audienceId, hash, {
+          tags: buildTags(contact).map((name) => ({ name, status: "active" })),
+        })
+      );
       updatedFingerprints[email] = fp;
     } catch (err) {
       tagErrors.push(`tag:${contact.email}: ${String(err)}`);
