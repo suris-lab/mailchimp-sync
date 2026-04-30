@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Legend,
+  ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { useCampaigns } from "@/hooks/useCampaigns";
@@ -192,8 +192,17 @@ export function CampaignPanel() {
   const [start, setStart]   = useState(daysAgo(29));
   const [end, setEnd]       = useState(today());
   const [metric, setMetric] = useState<Metric>("open_rate");
+  const [visibleCats, setVisibleCats] = useState<Set<CampaignCategory>>(new Set(CATEGORIES));
   const [sortKey, setSortKey] = useState<SortKey>("sent_time");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function toggleCat(cat: CampaignCategory) {
+    setVisibleCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) { next.delete(cat); } else { next.add(cat); }
+      return next;
+    });
+  }
 
   const tc = useThemeColors();
   const { data, isLoading } = useCampaigns(start, end);
@@ -296,9 +305,37 @@ export function CampaignPanel() {
 
       {/* ── Trend chart ── */}
       <div className="card p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">
-          {METRICS.find((m) => m.key === metric)?.label} over time · by category
-        </p>
+        {/* Header: label + category toggles */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+            {METRICS.find((m) => m.key === metric)?.label} over time
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map((cat) => {
+              const on = visibleCats.has(cat);
+              return (
+                <button
+                  key={cat}
+                  onClick={() => toggleCat(cat)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold transition-all"
+                  style={{
+                    borderColor: on ? CAT_COLOR[cat] + "80" : undefined,
+                    color:       on ? CAT_COLOR[cat] : undefined,
+                    background:  on ? CAT_COLOR[cat] + "12" : undefined,
+                  }}
+                  // fallback classes when inactive
+                  data-inactive={!on || undefined}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0 transition-colors"
+                    style={{ background: on ? CAT_COLOR[cat] : "#9ca3af" }}
+                  />
+                  <span className={on ? "" : "text-gray-400 dark:text-gray-500"}>{cat}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {chartData.length === 0 ? (
           <div className="h-48 flex items-center justify-center text-xs text-gray-300 dark:text-gray-600">
@@ -330,24 +367,16 @@ export function CampaignPanel() {
                 cursor={{ stroke: tc.tooltipBorder, strokeWidth: 1, strokeDasharray: "3 3" }}
                 content={(props) => <ChartTooltip {...props} metric={metric} tc={tc} />}
               />
-              <Legend
-                iconType="circle"
-                iconSize={7}
-                wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-                formatter={(val: string) => (
-                  <span style={{ color: tc.labelColor, fontSize: 11 }}>{val}</span>
-                )}
-              />
-              {CATEGORIES.map((cat) => (
+              {CATEGORIES.filter((cat) => visibleCats.has(cat)).map((cat) => (
                 <Line
                   key={cat}
                   dataKey={cat}
                   name={cat}
                   stroke={CAT_COLOR[cat]}
                   strokeWidth={2}
-                  dot={{ r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6, strokeWidth: 0 }}
-                  connectNulls={false}
+                  dot={{ r: 4, fill: CAT_COLOR[cat], strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: CAT_COLOR[cat], strokeWidth: 0 }}
+                  connectNulls={true}
                   type="monotone"
                 />
               ))}
