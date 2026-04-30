@@ -20,17 +20,13 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 rounded-xl border border-hebe-champagne/20 dark:border-gray-800 bg-white dark:bg-gray-900 animate-pulse" />
+          <div key={i} className="h-24 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 animate-pulse" />
         ))}
       </div>
     );
   }
 
-  const statusAccent =
-    stats?.last_sync_status === "success" ? "green"
-    : stats?.last_sync_status === "partial" ? "amber"
-    : stats?.last_sync_status === "error"   ? "pink"
-    : "blue";
+  const status = stats?.last_sync_status ?? "never";
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
@@ -44,20 +40,21 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
         label="Last — New"
         value={fmt(stats?.last_new_added)}
         sub="Added to Mailchimp"
-        accent="green"
+        accent="neutral"
       />
       <KpiCard
         label="Last — Updated"
         value={fmt(stats?.last_updated)}
         sub="Contacts refreshed"
-        accent="purple"
+        accent="neutral"
       />
       <KpiCard
         label="Last Sync"
-        value={stats?.last_sync_status === "never" ? "Never" : fmtTime(stats?.last_sync_at)}
+        value={status === "never" ? "Never" : fmtTime(stats?.last_sync_at)}
         sub={stats?.last_errors ? `${stats.last_errors} error(s)` : "No errors"}
-        accent={statusAccent}
-        badge={stats?.last_sync_status ?? "never"}
+        accent="neutral"
+        badge={status}
+        badgeVariant={status as "success" | "partial" | "error" | "never" | "skipped"}
       />
     </div>
   );

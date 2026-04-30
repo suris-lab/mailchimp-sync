@@ -9,27 +9,26 @@ import {
 import type { AudienceStats } from "@/lib/types";
 import { useThemeColors } from "@/hooks/useThemeColors";
 
-// ── Colours ──────────────────────────────────────────────────────────────────
-// All chosen for readability on both white (#fff) and deep-navy (#0f1448) backgrounds.
+// ── Colours — red + grays + tiny navy/brown accents ──────────────────────────
 const PIE_COLORS = [
-  "#eb0029", // HHYC red
-  "#2563eb", // blue-600
-  "#d97706", // amber-600 (brand-gold adjacent)
-  "#10b981", // emerald-500
-  "#8b5cf6", // violet-500
-  "#c40022", // deep red
-  "#0891b2", // cyan-600
-  "#f97316", // orange-500
-  "#6d28d9", // violet-700
-  "#0d9488", // teal-600
+  "#eb0029", // HHYC red — primary slice
+  "#6b7280", // gray-500
+  "#374151", // gray-700
+  "#9ca3af", // gray-400
+  "#4b5563", // gray-600
+  "#d1d5db", // gray-300
+  "#c40022", // dark red
+  "#05308C", // HHYC navy (branded accent)
+  "#7B5E3A", // HHYC brown (branded accent)
+  "#1f2937", // gray-800
 ];
 
 const BAR_COLORS = {
-  modifier:       "#2563eb",
-  interest:       "#eb0029",
-  facility:       "#2563eb",
-  skill:          "#d97706",
-  administrative: "#8b5cf6",
+  modifier:       "#6b7280", // gray-500
+  interest:       "#eb0029", // HHYC red
+  facility:       "#374151", // gray-700
+  skill:          "#7B5E3A", // HHYC brown
+  administrative: "#05308C", // HHYC navy
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -97,7 +96,7 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
         excludeNonMembers
           ? "bg-hebe-red text-white"
-          : "bg-hebe-ink/8 text-hebe-ink/50 dark:bg-gray-700 dark:text-gray-400 hover:text-hebe-red dark:hover:text-hebe-red"
+          : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 hover:text-hebe-red dark:hover:text-hebe-red"
       }`}
     >
       {excludeNonMembers ? "Non-members hidden" : "Include non-members"}
@@ -108,7 +107,7 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
     return (
       <div>
         <div className="mb-3">{toggleBtn}</div>
-        <p className="py-10 text-center text-xs text-hebe-ink/30 dark:text-gray-600">No data</p>
+        <p className="py-10 text-center text-xs text-gray-300 dark:text-gray-600">No data</p>
       </div>
     );
   }
@@ -197,8 +196,8 @@ function InteractiveBarSection({
   if (sorted.length === 0) {
     return (
       <div className="card p-4">
-        <p className="text-xs font-semibold text-hebe-ink/50 dark:text-gray-500 mb-3">{title}</p>
-        <p className="text-xs text-hebe-ink/30 dark:text-gray-600">No data</p>
+        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-3">{title}</p>
+        <p className="text-xs text-gray-300 dark:text-gray-600">No data</p>
       </div>
     );
   }
@@ -210,8 +209,8 @@ function InteractiveBarSection({
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold text-hebe-ink/60 dark:text-gray-400">{title}</p>
-        <span className="text-[10px] text-hebe-ink/30 dark:text-gray-600">{sorted.length} values</span>
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">{title}</p>
+        <span className="text-[10px] text-gray-300 dark:text-gray-600">{sorted.length} values</span>
       </div>
       <ResponsiveContainer width="100%" height={chartH}>
         <BarChart
@@ -247,7 +246,7 @@ function InteractiveBarSection({
       {sorted.length > 5 && (
         <button
           onClick={() => setShowAll((v) => !v)}
-          className="mt-2 flex items-center gap-1 text-[11px] text-hebe-ink/40 dark:text-gray-500 hover:text-hebe-red transition-colors"
+          className="mt-2 flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500 hover:text-hebe-red transition-colors"
         >
           {showAll ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
           {showAll ? "Show less" : `Show ${sorted.length - 5} more`}
@@ -284,7 +283,7 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
   if (!stats) {
     return (
       <div className="card p-8 text-center">
-        <p className="text-sm text-hebe-ink/40 dark:text-gray-500">
+        <p className="text-sm text-gray-400 dark:text-gray-500">
           No stats yet — run a sync to compute audience insights.
         </p>
       </div>
@@ -302,29 +301,29 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
             <Users size={14} className="text-hebe-red" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hebe-ink/50 dark:text-gray-500">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               On Mailchimp
             </p>
-            <p className="text-xl sm:text-2xl font-bold font-serif text-hebe-ink dark:text-white mt-1">
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">
               {stats.total_mailchimp_members.toLocaleString()}
             </p>
-            <p className="text-[10px] text-hebe-ink/40 dark:text-gray-500 mt-0.5 hidden sm:block">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 hidden sm:block">
               Subscribed members
             </p>
           </div>
         </div>
         <div className="card p-4 flex items-start gap-3">
-          <div className="rounded-lg bg-hebe-navy/10 p-2 shrink-0">
-            <Sheet size={14} className="text-hebe-navy dark:text-gray-300" />
+          <div className="rounded-lg bg-gray-100 dark:bg-gray-800 p-2 shrink-0">
+            <Sheet size={14} className="text-gray-500 dark:text-gray-400" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hebe-ink/50 dark:text-gray-500">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               In Sheet
             </p>
-            <p className="text-xl sm:text-2xl font-bold font-serif text-hebe-ink dark:text-white mt-1">
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">
               {stats.total_sheet_contacts.toLocaleString()}
             </p>
-            <p className="text-[10px] text-hebe-ink/40 dark:text-gray-500 mt-0.5 hidden sm:block">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 hidden sm:block">
               Computed {new Date(stats.computed_at).toLocaleString()}
             </p>
           </div>
@@ -333,8 +332,8 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
 
       {/* Membership — donut with % labels visible without hover */}
       <div className="card p-4">
-        <p className="text-xs font-semibold text-hebe-ink/60 dark:text-gray-400">Membership</p>
-        <p className="text-[10px] text-hebe-ink/35 dark:text-gray-500 mt-0.5 mb-1">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Membership</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 mb-1">
           % shown on each slice · hover for contact count
         </p>
         <MembershipPieChart data={stats.membership} />

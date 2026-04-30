@@ -21,8 +21,8 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
-      className="flex items-center gap-1.5 rounded-lg border border-hebe-ink/15 dark:border-gray-800
-                 px-2.5 py-2 text-xs text-hebe-ink/60 dark:text-gray-400
+      className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-800
+                 px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
                  hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
                  transition-colors"
     >

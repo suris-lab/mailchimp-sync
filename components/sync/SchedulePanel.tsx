@@ -34,17 +34,17 @@ const WEBHOOK_URL_PLACEHOLDER = process.env.NEXT_PUBLIC_APP_URL
 function AppsScriptGuide() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="mt-4 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
+    <div className="mt-4 rounded-lg border border-hebe-navy/20 bg-hebe-navy/5 p-4">
       <div className="flex items-start gap-3">
-        <Zap size={14} className="text-blue-400 mt-0.5 shrink-0" />
+        <Zap size={14} className="text-hebe-navy dark:text-gray-400 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-blue-300">Google Apps Script required</p>
+          <p className="text-xs font-medium text-gray-300">Google Apps Script required</p>
           <p className="text-xs text-gray-400 mt-0.5">
             A small script installed on your Google Sheet detects edits and calls this platform instantly (~5 sec delay).
           </p>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="mt-2 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            className="mt-2 flex items-center gap-1 text-xs text-hebe-navy dark:text-gray-400 hover:text-gray-300 transition-colors"
           >
             {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             {open ? "Hide setup steps" : "Show setup steps"}
@@ -132,9 +132,9 @@ export function SchedulePanel({ lastSyncAt }: SchedulePanelProps) {
               onClick={() => setSelected(opt.value)}
               className={`relative rounded-lg border px-3 py-2 text-xs transition-colors ${
                 active && isRealtime
-                  ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                  ? "border-hebe-red bg-hebe-red/10 text-hebe-red"
                   : active
-                  ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                  ? "border-hebe-red bg-hebe-red/10 text-hebe-red"
                   : "border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-600"
               }`}
             >
@@ -156,11 +156,11 @@ export function SchedulePanel({ lastSyncAt }: SchedulePanelProps) {
         </p>
 
         <div className="flex items-center gap-2">
-          {saved && <span className="text-xs text-emerald-400">Saved</span>}
+          {saved && <span className="text-xs text-gray-400">Saved</span>}
           <button
             onClick={handleSave}
             disabled={saving || !isDirty}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="rounded-lg bg-hebe-red px-3 py-1.5 text-xs font-medium text-white hover:bg-hebe-red-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {saving ? "Saving…" : "Save"}
           </button>

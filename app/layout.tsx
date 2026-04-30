@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Lora } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const lora = Lora({ subsets: ["latin"], variable: "--font-lora" });
 
 export const metadata: Metadata = {
   title: "HHYC · HHYC CRM Touchpoint System",
@@ -27,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${inter.variable} ${lora.variable} font-sans h-full`}>
+      <body className={`${inter.variable} font-sans h-full`}>
         {children}
       </body>
     </html>

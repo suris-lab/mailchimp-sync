@@ -11,10 +11,10 @@ interface SyncLogTableProps {
 
 function statusBadge(status: SyncLog["status"]) {
   const map: Record<string, string> = {
-    success: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-    partial: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    success: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700",
+    partial: "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 border-gray-200 dark:border-gray-700",
     error:   "bg-hebe-red/10 text-hebe-red border-hebe-red/30",
-    skipped: "bg-hebe-ink/5 text-hebe-ink/50 dark:bg-gray-800 dark:text-gray-500 border-transparent",
+    skipped: "bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border-transparent",
   };
   return (
     <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide ${map[status] ?? ""}`}>
@@ -26,13 +26,13 @@ function statusBadge(status: SyncLog["status"]) {
 function triggeredByLabel(by: SyncLog["triggered_by"]) {
   const map: Record<string, string> = {
     webhook: "text-hebe-navy dark:text-gray-300",
-    cron:    "text-violet-600 dark:text-violet-400",
+    cron:    "text-gray-500 dark:text-gray-400",
     manual:  "text-hebe-red",
   };
   return <span className={`text-xs font-medium ${map[by] ?? ""}`}>{by}</span>;
 }
 
-const thBase = "px-3 py-3 text-[10px] font-semibold uppercase tracking-widest text-hebe-ink/40 dark:text-gray-500";
+const thBase = "px-3 py-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500";
 
 export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
     return (
       <div className="space-y-2">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-10 rounded-xl bg-hebe-ink/5 dark:bg-gray-900 animate-pulse" />
+          <div key={i} className="h-10 rounded-xl bg-gray-100 dark:bg-gray-900 animate-pulse" />
         ))}
       </div>
     );
@@ -49,7 +49,7 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
 
   if (logs.length === 0) {
     return (
-      <div className="card p-8 text-center text-sm text-hebe-ink/40 dark:text-gray-500">
+      <div className="card p-8 text-center text-sm text-gray-400 dark:text-gray-500">
         No sync runs in this date range.
       </div>
     );
@@ -65,18 +65,18 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
           <div key={log.id} className="card px-4 py-3 space-y-2">
             <div className="flex items-center justify-between">
               {statusBadge(log.status)}
-              <span className="text-[10px] text-hebe-ink/40 dark:text-gray-500">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">
                 {new Date(log.timestamp).toLocaleString()}
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-base font-bold font-serif text-emerald-600 dark:text-emerald-400">{log.new_added}</p>
-                <p className="text-[10px] text-hebe-ink/40 dark:text-gray-500">New</p>
+                <p className="text-base font-bold text-gray-900 dark:text-white">{log.new_added}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">New</p>
               </div>
               <div>
-                <p className="text-base font-bold font-serif text-violet-600 dark:text-violet-400">{log.updated}</p>
-                <p className="text-[10px] text-hebe-ink/40 dark:text-gray-500">Updated</p>
+                <p className="text-base font-bold text-gray-600 dark:text-gray-400">{log.updated}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">Updated</p>
               </div>
               <div>
                 {hasErrors ? (
@@ -84,7 +84,7 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
                     onClick={() => setExpandedId(isExpanded ? null : log.id)}
                     className="w-full"
                   >
-                    <p className="text-base font-bold font-serif text-hebe-red flex items-center justify-center gap-0.5">
+                    <p className="text-base font-bold text-hebe-red flex items-center justify-center gap-0.5">
                       {log.errors}
                       {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </p>
@@ -92,15 +92,15 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
                   </button>
                 ) : (
                   <>
-                    <p className="text-base font-bold font-serif text-hebe-ink/25 dark:text-gray-600">—</p>
-                    <p className="text-[10px] text-hebe-ink/40 dark:text-gray-500">Errors</p>
+                    <p className="text-base font-bold text-gray-300 dark:text-gray-600">—</p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">Errors</p>
                   </>
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-between pt-1 border-t border-hebe-champagne/10 dark:border-gray-800">
+            <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
               {triggeredByLabel(log.triggered_by)}
-              <span className="text-[10px] text-hebe-ink/35 dark:text-gray-500">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">
                 {log.duration_ms}ms · {log.total_contacts ?? 0} contacts
               </span>
             </div>
@@ -126,10 +126,10 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
 
   // ── Desktop: full table ──────────────────────────────────────────────────────
   const DesktopTable = () => (
-    <div className="hidden sm:block overflow-x-auto rounded-xl border border-hebe-champagne/20 dark:border-gray-800">
+    <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-hebe-champagne/20 dark:border-gray-800 bg-hebe-cream/60 dark:bg-gray-900">
+          <tr className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
             <th className={`${thBase} text-left`}>Time</th>
             <th className={`${thBase} text-left`}>Trigger</th>
             <th className={`${thBase} text-right`}>Total</th>
@@ -141,27 +141,27 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
             <th className={`${thBase} text-left`}>Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-hebe-champagne/10 dark:divide-gray-800 bg-white dark:bg-gray-950">
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-950">
           {logs.map((log) => {
             const hasErrors = log.errors > 0 && log.error_details.length > 0;
             const isExpanded = expandedId === log.id;
             return (
               <>
-                <tr key={log.id} className="hover:bg-hebe-cream dark:hover:bg-gray-900 transition-colors">
-                  <td className="whitespace-nowrap px-3 py-3 text-xs text-hebe-ink/60 dark:text-gray-400">
+                <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
+                  <td className="whitespace-nowrap px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-3 py-3">{triggeredByLabel(log.triggered_by)}</td>
-                  <td className="px-3 py-3 text-right text-xs text-hebe-ink/35 dark:text-gray-500">
+                  <td className="px-3 py-3 text-right text-xs text-gray-400 dark:text-gray-500">
                     {(log.total_contacts ?? "—").toLocaleString()}
                   </td>
-                  <td className="px-3 py-3 text-right text-xs text-hebe-ink/60 dark:text-gray-400">
+                  <td className="px-3 py-3 text-right text-xs text-gray-500 dark:text-gray-400">
                     {log.contacts_processed.toLocaleString()}
                   </td>
-                  <td className="px-3 py-3 text-right text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <td className="px-3 py-3 text-right text-xs font-semibold text-gray-900 dark:text-white">
                     {log.new_added.toLocaleString()}
                   </td>
-                  <td className="px-3 py-3 text-right text-xs text-violet-600 dark:text-violet-400 font-semibold">
+                  <td className="px-3 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">
                     {log.updated.toLocaleString()}
                   </td>
                   <td className="px-3 py-3 text-right text-xs">
@@ -174,10 +174,10 @@ export function SyncLogTable({ logs, isLoading }: SyncLogTableProps) {
                         {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                       </button>
                     ) : (
-                      <span className="text-hebe-ink/25 dark:text-gray-600">—</span>
+                      <span className="text-gray-300 dark:text-gray-700">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-right text-xs text-hebe-ink/40 dark:text-gray-500">
+                  <td className="px-3 py-3 text-right text-xs text-gray-400 dark:text-gray-500">
                     {log.duration_ms}ms
                   </td>
                   <td className="px-3 py-3">{statusBadge(log.status)}</td>

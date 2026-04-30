@@ -66,7 +66,7 @@ export function ManualSyncButton() {
       </button>
       {/* Message shown below header on mobile — overlapping is ugly */}
       {message && (
-        <span className={`hidden sm:inline text-xs font-medium ${message.ok ? "text-emerald-600 dark:text-emerald-400" : "text-hebe-red"}`}>
+        <span className={`hidden sm:inline text-xs font-medium ${message.ok ? "text-gray-500 dark:text-gray-400" : "text-hebe-red"}`}>
           {message.text}
         </span>
       )}
