@@ -18,7 +18,7 @@ function fmtTime(iso: string | null | undefined) {
 export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="h-24 rounded-xl border border-hebe-champagne/20 dark:border-hebe-deep-3 bg-white dark:bg-hebe-deep-2 animate-pulse" />
         ))}
@@ -29,28 +29,27 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
   const statusAccent =
     stats?.last_sync_status === "success" ? "green"
     : stats?.last_sync_status === "partial" ? "amber"
-    : stats?.last_sync_status === "error" ? "pink"
-    : stats?.last_sync_status === "skipped" ? "blue"
+    : stats?.last_sync_status === "error"   ? "pink"
     : "blue";
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
       <KpiCard
-        label="Total Contacts Synced"
+        label="Total Synced"
         value={fmt(stats?.total_ever_synced)}
-        sub="All time cumulative"
+        sub="All time"
         accent="red"
       />
       <KpiCard
-        label="Last Run — New"
+        label="Last — New"
         value={fmt(stats?.last_new_added)}
-        sub="Newly added to Mailchimp"
+        sub="Added to Mailchimp"
         accent="green"
       />
       <KpiCard
-        label="Last Run — Updated"
+        label="Last — Updated"
         value={fmt(stats?.last_updated)}
-        sub="Existing contacts refreshed"
+        sub="Contacts refreshed"
         accent="purple"
       />
       <KpiCard

@@ -33,46 +33,50 @@ export default function DashboardPage() {
     <div className="min-h-full bg-hebe-cream dark:bg-hebe-deep">
 
       {/* ── Header ── */}
-      <header className="border-b border-hebe-champagne/20 bg-white dark:bg-hebe-deep-2 dark:border-hebe-deep-3 px-6 py-3 sticky top-0 z-10 backdrop-blur-sm">
-        <div className="mx-auto max-w-6xl flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-20 border-b border-hebe-champagne/20 dark:border-hebe-deep-3
+                         bg-white/95 dark:bg-hebe-deep-2/95 backdrop-blur-sm px-4 sm:px-6 py-3">
+        <div className="mx-auto max-w-6xl flex items-center justify-between gap-3">
 
-          {/* Brand identity */}
-          <div className="flex items-center gap-3">
+          {/* Brand */}
+          <div className="flex items-center gap-2.5 min-w-0">
             <Image
               src="/logo.png"
               alt="HHYC burgee"
-              width={40}
-              height={40}
-              className="object-contain drop-shadow-sm"
+              width={36}
+              height={36}
+              className="object-contain shrink-0 drop-shadow-sm"
             />
-            <div>
-              <p className="font-serif text-sm font-semibold tracking-wide text-hebe-ink dark:text-hebe-cream leading-tight">
-                Hebe Haven Yacht Club
+            <div className="min-w-0">
+              <p className="font-serif text-xs sm:text-sm font-semibold tracking-wide text-hebe-ink dark:text-hebe-cream truncate leading-tight">
+                {/* Abbreviated on very small screens */}
+                <span className="sm:hidden">HHYC</span>
+                <span className="hidden sm:inline">Hebe Haven Yacht Club</span>
               </p>
-              <p className="text-[10px] text-hebe-ink/50 dark:text-hebe-champagne/60 leading-tight mt-0.5">
-                Sheets → Mailchimp Sync
+              <p className="text-[9px] sm:text-[10px] text-hebe-ink/45 dark:text-hebe-champagne/50 leading-tight mt-0.5 hidden xs:block">
+                Sheets → Mailchimp
               </p>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <ThemeToggle />
             <Link
               href="/settings"
-              className="flex items-center gap-1.5 rounded-lg border border-hebe-ink/15 px-3 py-2 text-xs
-                         text-hebe-ink/70 hover:text-hebe-ink hover:border-hebe-ink/30 transition-colors
-                         dark:border-hebe-deep-3 dark:text-hebe-champagne/70 dark:hover:text-hebe-cream dark:hover:border-hebe-champagne/40"
+              className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-hebe-ink/15 dark:border-hebe-deep-3
+                         px-2.5 py-2 text-xs text-hebe-ink/60 dark:text-hebe-champagne/60
+                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
+                         transition-colors"
             >
               <Settings size={13} />
-              Settings
+              <span className="hidden sm:inline">Settings</span>
             </Link>
             <ManualSyncButton />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8 space-y-10">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-8 sm:space-y-10">
 
         {/* KPI Strip */}
         <section>
@@ -92,9 +96,9 @@ export default function DashboardPage() {
           <AudienceStatsPanel stats={audienceStats} isLoading={audienceLoading} />
         </section>
 
-        {/* Sync Log */}
+        {/* Sync History */}
         <section>
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <SectionHeader
               title="Sync History"
               subtitle={`${logsData?.total ?? 0} run(s) in selected range`}
@@ -110,9 +114,9 @@ export default function DashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-hebe-champagne/20 dark:border-hebe-deep-3 py-5 px-6 text-center">
-        <p className="text-[10px] text-hebe-ink/30 dark:text-hebe-champagne/30 font-serif tracking-wide">
-          HEBE HAVEN YACHT CLUB · Est. 1963 · Pak Sha Wan, Sai Kung
+      <footer className="mt-12 border-t border-hebe-champagne/20 dark:border-hebe-deep-3 py-5 px-4 text-center">
+        <p className="text-[9px] sm:text-[10px] text-hebe-ink/30 dark:text-hebe-champagne/30 font-serif tracking-widest uppercase">
+          Hebe Haven Yacht Club · Est. 1963 · Pak Sha Wan, Sai Kung
         </p>
       </footer>
     </div>

@@ -7,9 +7,7 @@ export function ThemeToggle() {
   const [dark, setDark] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem("hebe-theme");
-    const isDark = stored !== "light";
-    setDark(isDark);
+    setDark(document.documentElement.classList.contains("dark"));
   }, []);
 
   function toggle() {
@@ -23,13 +21,14 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
-      className="flex items-center gap-1.5 rounded-lg border border-hebe-champagne/30 px-3 py-2 text-xs
-                 text-hebe-champagne hover:border-hebe-champagne/60 hover:text-hebe-gold transition-colors
-                 dark:border-hebe-deep-3 dark:text-hebe-champagne dark:hover:border-hebe-champagne/50
-                 bg-transparent"
+      className="flex items-center gap-1.5 rounded-lg border border-hebe-ink/15 dark:border-hebe-deep-3
+                 px-2.5 py-2 text-xs text-hebe-ink/60 dark:text-hebe-champagne/60
+                 hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
+                 transition-colors"
     >
       {dark ? <Sun size={13} /> : <Moon size={13} />}
-      {dark ? "Light" : "Dark"}
+      {/* Label hidden on mobile — icon is enough */}
+      <span className="hidden sm:inline">{dark ? "Light" : "Dark"}</span>
     </button>
   );
 }

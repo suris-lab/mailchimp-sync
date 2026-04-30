@@ -10,19 +10,18 @@ export function ManualSyncButton() {
 
   async function handleSync() {
     setLoading(true);
-    setMessage({ text: "Syncing…", ok: true });
+    setMessage(null);
 
     try {
       const res = await fetch("/api/sync", { method: "POST" });
       const body = await res.json();
 
       if (res.status === 409) {
-        setMessage({ text: "Sync already in progress — try again in a moment", ok: false });
+        setMessage({ text: "Already syncing — try again shortly", ok: false });
         return;
       }
-
       if (!res.ok || body.error) {
-        setMessage({ text: `Sync failed: ${body.error ?? res.statusText}`, ok: false });
+        setMessage({ text: body.error ?? res.statusText, ok: false });
         return;
       }
 
@@ -32,10 +31,10 @@ export function ManualSyncButton() {
 
       setMessage({
         text: skipped
-          ? "No changes — Mailchimp is already up to date"
+          ? "No changes"
           : isError
-          ? `Finished with errors — ${log.errors} failed`
-          : `Done — ${log?.new_added ?? 0} new, ${log?.updated ?? 0} updated`,
+          ? `${log.errors} error(s)`
+          : `+${log?.new_added ?? 0} new, ${log?.updated ?? 0} updated`,
         ok: !isError,
       });
 
@@ -43,30 +42,31 @@ export function ManualSyncButton() {
       await mutate(
         (key) => typeof key === "string" && key.startsWith("/api/sync-logs"),
         undefined,
-        { revalidate: true }
+        { revalidate: true },
       );
       await mutate("/api/audience-stats");
     } catch (err) {
-      setMessage({ text: `Could not reach server: ${String(err)}`, ok: false });
+      setMessage({ text: String(err), ok: false });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <button
         onClick={handleSync}
         disabled={loading}
-        className="flex items-center gap-2 rounded-lg bg-hebe-red px-4 py-2 text-sm font-semibold text-white
-                   hover:bg-hebe-red-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors
-                   shadow-sm"
+        className="flex items-center gap-1.5 rounded-lg bg-hebe-red px-3 sm:px-4 py-2 text-xs sm:text-sm
+                   font-semibold text-white hover:bg-hebe-red-dark
+                   disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
       >
         <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-        {loading ? "Syncing…" : "Sync Now"}
+        <span className="hidden xs:inline sm:inline">{loading ? "Syncing…" : "Sync Now"}</span>
       </button>
+      {/* Message shown below header on mobile — overlapping is ugly */}
       {message && (
-        <span className={`text-xs font-medium ${message.ok ? "text-emerald-600 dark:text-emerald-400" : "text-hebe-red"}`}>
+        <span className={`hidden sm:inline text-xs font-medium ${message.ok ? "text-emerald-600 dark:text-emerald-400" : "text-hebe-red"}`}>
           {message.text}
         </span>
       )}
