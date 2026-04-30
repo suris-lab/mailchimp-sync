@@ -20,13 +20,13 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
     return (
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 rounded-xl border border-gray-800 bg-gray-900 animate-pulse" />
+          <div key={i} className="h-24 rounded-xl border border-hebe-champagne/20 dark:border-hebe-deep-3 bg-white dark:bg-hebe-deep-2 animate-pulse" />
         ))}
       </div>
     );
   }
 
-  const statusColor =
+  const statusAccent =
     stats?.last_sync_status === "success" ? "green"
     : stats?.last_sync_status === "partial" ? "amber"
     : stats?.last_sync_status === "error" ? "pink"
@@ -39,7 +39,7 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
         label="Total Contacts Synced"
         value={fmt(stats?.total_ever_synced)}
         sub="All time cumulative"
-        accent="blue"
+        accent="red"
       />
       <KpiCard
         label="Last Run — New"
@@ -57,7 +57,7 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
         label="Last Sync"
         value={stats?.last_sync_status === "never" ? "Never" : fmtTime(stats?.last_sync_at)}
         sub={stats?.last_errors ? `${stats.last_errors} error(s)` : "No errors"}
-        accent={statusColor}
+        accent={statusAccent}
         badge={stats?.last_sync_status ?? "never"}
       />
     </div>

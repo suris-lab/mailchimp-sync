@@ -58,13 +58,15 @@ export function ManualSyncButton() {
       <button
         onClick={handleSync}
         disabled={loading}
-        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center gap-2 rounded-lg bg-hebe-red px-4 py-2 text-sm font-semibold text-white
+                   hover:bg-hebe-red-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors
+                   shadow-sm"
       >
-        <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+        <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
         {loading ? "Syncing…" : "Sync Now"}
       </button>
       {message && (
-        <span className={`text-xs ${message.ok ? "text-emerald-400" : "text-red-400"}`}>
+        <span className={`text-xs font-medium ${message.ok ? "text-emerald-600 dark:text-emerald-400" : "text-hebe-red"}`}>
           {message.text}
         </span>
       )}

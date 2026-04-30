@@ -3,14 +3,44 @@
 @tailwind utilities;
 
 @layer base {
+  /* Light mode */
   body {
-    @apply bg-gray-950 text-gray-100 antialiased;
+    @apply bg-hebe-cream text-hebe-ink antialiased font-sans;
+  }
+
+  /* Dark mode */
+  .dark body {
+    @apply bg-hebe-deep text-hebe-cream;
+  }
+
+  /* Smooth theme transitions */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color;
+    transition-duration: 150ms;
+    transition-timing-function: ease;
+  }
+
+  /* Date input calendar icon colour in dark mode */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.4);
   }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #374151 transparent;
+    scrollbar-color: #1a2160 transparent;
+  }
+  .dark .scrollbar-thin {
+    scrollbar-color: #3d5aa0 transparent;
+  }
+
+  /* Card surface helpers */
+  .card {
+    @apply rounded-xl border border-hebe-champagne/20 bg-white dark:bg-hebe-deep-2 dark:border-hebe-deep-3;
+  }
+
+  .card-header {
+    @apply bg-white border-b border-hebe-champagne/20 dark:bg-hebe-deep-2 dark:border-hebe-deep-3;
   }
 }

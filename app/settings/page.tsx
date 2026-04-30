@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { SchedulePanel } from "@/components/sync/SchedulePanel";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { useSyncStats } from "@/hooks/useSyncStats";
@@ -10,19 +12,25 @@ export default function SettingsPage() {
   const { data: stats } = useSyncStats();
 
   return (
-    <div className="min-h-full bg-gray-950">
-      <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
-        <div className="mx-auto max-w-3xl flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="rounded-lg border border-gray-700 p-2 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
-          >
-            <ArrowLeft size={14} />
-          </Link>
-          <div>
-            <h1 className="text-base font-semibold text-white">Settings</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Sync schedule and configuration</p>
+    <div className="min-h-full bg-hebe-cream dark:bg-hebe-deep">
+      <header className="border-b border-hebe-champagne/20 dark:border-hebe-deep-3 bg-white dark:bg-hebe-deep-2 px-6 py-3 sticky top-0 z-10">
+        <div className="mx-auto max-w-3xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="rounded-lg border border-hebe-ink/15 dark:border-hebe-deep-3 p-2
+                         text-hebe-ink/50 dark:text-hebe-champagne/50
+                         hover:text-hebe-red dark:hover:text-hebe-red hover:border-hebe-red/30 transition-colors"
+            >
+              <ArrowLeft size={14} />
+            </Link>
+            <Image src="/logo.png" alt="HHYC" width={30} height={30} className="object-contain" />
+            <div>
+              <p className="font-serif text-sm font-semibold text-hebe-ink dark:text-hebe-cream">Settings</p>
+              <p className="text-[10px] text-hebe-ink/40 dark:text-hebe-champagne/40 mt-0.5">Sync schedule & configuration</p>
+            </div>
           </div>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -40,15 +48,17 @@ export default function SettingsPage() {
             title="Diagnostics"
             subtitle="Check that all services are connected correctly"
           />
-          <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-            <p className="text-xs text-gray-400 mb-3">
+          <div className="rounded-xl border border-hebe-champagne/20 dark:border-hebe-deep-3 bg-white dark:bg-hebe-deep-2 p-5">
+            <p className="text-xs text-hebe-ink/50 dark:text-hebe-champagne/50 mb-4">
               Opens a JSON report showing the status of KV, Google Sheets, and Mailchimp connections.
             </p>
             <a
               href="/api/debug"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-hebe-ink/15 dark:border-hebe-deep-3
+                         px-3 py-2 text-xs text-hebe-ink/70 dark:text-hebe-champagne/70
+                         hover:border-hebe-red hover:text-hebe-red transition-colors"
             >
               Run diagnostics →
             </a>
