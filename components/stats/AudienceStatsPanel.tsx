@@ -2,57 +2,141 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Users, Sheet } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { AudienceStats } from "@/lib/types";
 
-// Sort entries descending by count
-function sorted(obj: Record<string, number>): [string, number][] {
-  return Object.entries(obj).sort((a, b) => b[1] - a[1]);
+const PIE_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444",
+  "#06b6d4", "#f97316", "#a3e635", "#ec4899", "#6366f1",
+];
+
+// Group slices below threshold% into "Others"
+function groupSmallSlices(
+  obj: Record<string, number>,
+  thresholdPct = 3
+): { name: string; value: number }[] {
+  const sorted = Object.entries(obj).sort((a, b) => b[1] - a[1]);
+  const total = sorted.reduce((s, [, v]) => s + v, 0);
+  const main: { name: string; value: number }[] = [];
+  let others = 0;
+
+  for (const [name, value] of sorted) {
+    const pct = total > 0 ? (value / total) * 100 : 0;
+    if (pct >= thresholdPct) {
+      main.push({ name, value });
+    } else {
+      others += value;
+    }
+  }
+  if (others > 0) main.push({ name: "Others", value: others });
+  return main;
 }
 
-// Single horizontal bar row
-function BarRow({
-  label, count, maxCount, total, color,
+// Custom tooltip shared by pie and bar charts
+function ChartTooltip({
+  active,
+  payload,
+  totalForPct,
 }: {
-  label: string;
-  count: number;
-  maxCount: number;
-  total?: number;
-  color: string;
+  active?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: readonly any[];
+  totalForPct: number;
 }) {
-  const barPct = maxCount > 0 ? (count / maxCount) * 100 : 0;
-  const pct = total && total > 0 ? Math.round((count / total) * 100) : null;
+  if (!active || !payload?.length) return null;
+  const { name, value } = payload[0].payload as { name: string; value: number };
+  const pct = totalForPct > 0 ? ((value / totalForPct) * 100).toFixed(1) : "–";
   return (
-    <div className="flex items-center gap-3 py-1.5">
-      <span className="w-40 text-xs text-gray-300 truncate shrink-0" title={label}>
-        {label}
-      </span>
-      <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-300 ${color}`} style={{ width: `${barPct}%` }} />
-      </div>
-      <span className="w-10 text-right text-xs font-medium text-gray-200 shrink-0">
-        {count.toLocaleString()}
-      </span>
-      {pct !== null && (
-        <span className="w-9 text-right text-xs text-gray-500 shrink-0">{pct}%</span>
-      )}
+    <div className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs shadow-xl">
+      <p className="font-medium text-white">{name}</p>
+      <p className="text-gray-300">{value.toLocaleString()} contacts</p>
+      <p className="text-gray-400">{pct}%</p>
     </div>
   );
 }
 
-// A collapsible chart section for one tag category
-function TagSection({
-  title, data, color,
+// Donut / pie chart for Membership
+function MembershipPieChart({ data }: { data: Record<string, number> }) {
+  const slices = groupSmallSlices(data);
+  const total = slices.reduce((s, d) => s + d.value, 0);
+
+  if (slices.length === 0) {
+    return <p className="text-xs text-gray-600 py-8 text-center">No data</p>;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <PieChart>
+        <Pie
+          data={slices}
+          cx="50%"
+          cy="46%"
+          innerRadius={68}
+          outerRadius={110}
+          paddingAngle={2}
+          dataKey="value"
+          isAnimationActive
+        >
+          {slices.map((_, i) => (
+            <Cell
+              key={i}
+              fill={PIE_COLORS[i % PIE_COLORS.length]}
+              stroke="transparent"
+            />
+          ))}
+        </Pie>
+        <Tooltip
+          content={({ active, payload }) => (
+            <ChartTooltip
+              active={active}
+              payload={payload}
+              totalForPct={total}
+            />
+          )}
+        />
+        <Legend
+          iconType="circle"
+          iconSize={8}
+          formatter={(value: string) => (
+            <span style={{ fontSize: 11, color: "#9ca3af" }}>{value}</span>
+          )}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Interactive horizontal bar chart for modifier + tag sections
+function InteractiveBarSection({
+  title,
+  data,
+  color,
+  total,
 }: {
   title: string;
   data: Record<string, number>;
   color: string;
+  total: number;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const rows = sorted(data);
-  const max = rows[0]?.[1] ?? 1;
-  const visible = showAll ? rows : rows.slice(0, 5);
+  const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  const visible = (showAll ? sorted : sorted.slice(0, 5)).map(([name, value]) => ({
+    name,
+    value,
+  }));
 
-  if (rows.length === 0) {
+  if (sorted.length === 0) {
     return (
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
         <p className="text-xs font-medium text-gray-400 mb-3">{title}</p>
@@ -61,24 +145,49 @@ function TagSection({
     );
   }
 
+  const chartHeight = visible.length * 36 + 8;
+
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-medium text-gray-400">{title}</p>
-        <span className="text-[10px] text-gray-600">{rows.length} values</span>
+        <span className="text-[10px] text-gray-600">{sorted.length} values</span>
       </div>
-      <div className="space-y-0.5">
-        {visible.map(([label, count]) => (
-          <BarRow key={label} label={label} count={count} maxCount={max} color={color} />
-        ))}
-      </div>
-      {rows.length > 5 && (
+      <ResponsiveContainer width="100%" height={chartHeight}>
+        <BarChart
+          data={visible}
+          layout="vertical"
+          margin={{ top: 0, right: 44, left: 0, bottom: 0 }}
+        >
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={130}
+            tick={{ fontSize: 11, fill: "#9ca3af" }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: "rgba(255,255,255,0.04)" }}
+            content={({ active, payload }) => (
+              <ChartTooltip
+                active={active}
+                payload={payload}
+                totalForPct={total}
+              />
+            )}
+          />
+          <Bar dataKey="value" fill={color} radius={[0, 3, 3, 0]} barSize={14} />
+        </BarChart>
+      </ResponsiveContainer>
+      {sorted.length > 5 && (
         <button
           onClick={() => setShowAll((v) => !v)}
-          className="mt-3 flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+          className="mt-2 flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
         >
           {showAll ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-          {showAll ? "Show less" : `Show ${rows.length - 5} more`}
+          {showAll ? "Show less" : `Show ${sorted.length - 5} more`}
         </button>
       )}
     </div>
@@ -99,8 +208,9 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
             <div key={i} className="h-24 rounded-xl border border-gray-800 bg-gray-900 animate-pulse" />
           ))}
         </div>
+        <div className="h-72 rounded-xl border border-gray-800 bg-gray-900 animate-pulse" />
         <div className="grid grid-cols-2 gap-4">
-          {[...Array(2)].map((_, i) => (
+          {[...Array(4)].map((_, i) => (
             <div key={i} className="h-48 rounded-xl border border-gray-800 bg-gray-900 animate-pulse" />
           ))}
         </div>
@@ -116,33 +226,33 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
     );
   }
 
-  const membershipRows = sorted(stats.membership);
-  const membershipMax = membershipRows[0]?.[1] ?? 1;
-
-  const modifierRows = sorted(stats.membership_modifier);
-  const modifierMax = modifierRows[0]?.[1] ?? 1;
+  const total = stats.total_sheet_contacts;
 
   return (
     <div className="space-y-6">
-      {/* Overview */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="col-span-2 sm:col-span-1 rounded-xl border border-gray-800 bg-gray-900 p-4 flex items-start gap-3">
+      {/* Overview KPI cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 flex items-start gap-3">
           <div className="rounded-lg bg-blue-500/10 p-2 shrink-0">
             <Users size={14} className="text-blue-400" />
           </div>
           <div className="min-w-0">
             <p className="text-xs text-gray-400">Contacts on Mailchimp</p>
-            <p className="text-2xl font-semibold text-white mt-1">{stats.total_mailchimp_members.toLocaleString()}</p>
+            <p className="text-2xl font-semibold text-white mt-1">
+              {stats.total_mailchimp_members.toLocaleString()}
+            </p>
             <p className="text-[10px] text-gray-600 mt-0.5">Subscribed members</p>
           </div>
         </div>
-        <div className="col-span-2 sm:col-span-1 rounded-xl border border-gray-800 bg-gray-900 p-4 flex items-start gap-3">
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 flex items-start gap-3">
           <div className="rounded-lg bg-emerald-500/10 p-2 shrink-0">
             <Sheet size={14} className="text-emerald-400" />
           </div>
           <div className="min-w-0">
             <p className="text-xs text-gray-400">Contacts in Sheet</p>
-            <p className="text-2xl font-semibold text-white mt-1">{stats.total_sheet_contacts.toLocaleString()}</p>
+            <p className="text-2xl font-semibold text-white mt-1">
+              {stats.total_sheet_contacts.toLocaleString()}
+            </p>
             <p className="text-[10px] text-gray-600 mt-0.5">
               Computed {new Date(stats.computed_at).toLocaleString()}
             </p>
@@ -150,57 +260,29 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
         </div>
       </div>
 
-      {/* Membership + Modifier */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* Membership breakdown */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-          <p className="text-xs font-medium text-gray-400 mb-3">Membership</p>
-          {membershipRows.length === 0 ? (
-            <p className="text-xs text-gray-600">No data</p>
-          ) : (
-            <div className="space-y-0.5">
-              {membershipRows.map(([label, count]) => (
-                <BarRow
-                  key={label}
-                  label={label}
-                  count={count}
-                  maxCount={membershipMax}
-                  total={stats.total_sheet_contacts}
-                  color="bg-blue-500"
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Membership Modifier */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-          <p className="text-xs font-medium text-gray-400 mb-3">Membership Modifier</p>
-          {modifierRows.length === 0 ? (
-            <p className="text-xs text-gray-600">No data</p>
-          ) : (
-            <div className="space-y-0.5">
-              {modifierRows.map(([label, count]) => (
-                <BarRow
-                  key={label}
-                  label={label}
-                  count={count}
-                  maxCount={modifierMax}
-                  total={stats.total_sheet_contacts}
-                  color="bg-purple-500"
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Membership — full-width pie chart */}
+      <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+        <p className="text-xs font-medium text-gray-400 mb-1">Membership</p>
+        <p className="text-[10px] text-gray-600 mb-3">
+          Hover a slice for details · slices &lt; 3% grouped into Others
+        </p>
+        <MembershipPieChart data={stats.membership} />
       </div>
+
+      {/* Membership Modifier */}
+      <InteractiveBarSection
+        title="Membership Modifier"
+        data={stats.membership_modifier}
+        color="#8b5cf6"
+        total={total}
+      />
 
       {/* Tag breakdown — 2×2 grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TagSection title="Interest" data={stats.tags.interest} color="bg-emerald-500" />
-        <TagSection title="Facility" data={stats.tags.facility} color="bg-amber-500" />
-        <TagSection title="Skill" data={stats.tags.skill} color="bg-teal-500" />
-        <TagSection title="Administrative" data={stats.tags.administrative} color="bg-rose-500" />
+        <InteractiveBarSection title="Interest"       data={stats.tags.interest}       color="#10b981" total={total} />
+        <InteractiveBarSection title="Facility"       data={stats.tags.facility}       color="#f59e0b" total={total} />
+        <InteractiveBarSection title="Skill"          data={stats.tags.skill}          color="#06b6d4" total={total} />
+        <InteractiveBarSection title="Administrative" data={stats.tags.administrative} color="#f43f5e" total={total} />
       </div>
     </div>
   );
