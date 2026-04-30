@@ -1,13 +1,13 @@
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import type { SyncLog, SyncStats, SyncSchedule, SheetContact } from "@/lib/types";
 import { fetchSheetContacts } from "./google-sheets";
 import { upsertContacts } from "./mailchimp-upsert";
 import { kvGet, kvSet, kvLpush } from "@/lib/kv";
 
-const KV_KNOWN_EMAILS = "sync:known_emails";
 const KV_STATS = "sync:stats";
 const KV_LOG_IDS = "sync:log_ids";
 const KV_SCHEDULE = "sync:schedule";
+const KV_CONTACT_FP = "sync:contact_fingerprints";
 
 export async function shouldSkipCronSync(): Promise<boolean> {
   const schedule = await kvGet<SyncSchedule>(KV_SCHEDULE);
@@ -20,33 +20,15 @@ export async function shouldSkipCronSync(): Promise<boolean> {
   return elapsed < schedule.interval_minutes;
 }
 
-// Parse date strings including DD/MM/YYYY (common in HK/AU sheets)
-function parseDate(s: string): number {
-  if (!s) return NaN;
-  let t = new Date(s).getTime();
-  if (!isNaN(t)) return t;
-  // DD/MM/YYYY or D/M/YYYY
-  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (dmy) {
-    t = new Date(`${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`).getTime();
-    if (!isNaN(t)) return t;
-  }
-  return NaN;
-}
-
-// Filter to contacts changed since the last sync using the UpdatedAt column.
-// Falls back to the full list when UpdatedAt is missing or unparseable.
-function filterChanged(contacts: SheetContact[], lastSyncAt: string | null): SheetContact[] {
-  if (!lastSyncAt) return contacts; // first run — sync everything
-
-  const lastSyncMs = new Date(lastSyncAt).getTime();
-  if (isNaN(lastSyncMs)) return contacts;
-
-  return contacts.filter((c) => {
-    if (!c.updatedAt) return true; // no date — include to be safe
-    const updatedMs = parseDate(c.updatedAt);
-    return isNaN(updatedMs) || updatedMs >= lastSyncMs;
-  });
+// Hash every meaningful field so any change to any column triggers a resync.
+// Does NOT rely on the UpdatedAt column being maintained in the sheet.
+function fullFingerprint(c: SheetContact): string {
+  const raw = [
+    c.email, c.fullName, c.memberId, c.membership, c.membershipModifier,
+    c.phone, c.note, c.createdAt, c.updatedAt, c.changedId,
+    ...c.interest, ...c.facility, ...c.skill, ...c.administrative,
+  ].join("|");
+  return createHash("md5").update(raw).digest("hex");
 }
 
 export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<SyncLog> {
@@ -64,44 +46,41 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
   try {
     // 1. Fetch all contacts from Google Sheets
     const allContacts = await fetchSheetContacts();
-
-    // 2. Load previous stats to get last sync time for incremental filtering
-    const prevStats = (await kvGet<SyncStats>(KV_STATS)) ?? {
-      total_ever_synced: 0,
-      last_sync_at: null,
-      last_sync_status: "never" as const,
-      last_new_added: 0,
-      last_updated: 0,
-      last_errors: 0,
-    };
-
-    // 3. Incremental: only process contacts updated since last sync
     total_contacts = allContacts.length;
-    const contacts = filterChanged(allContacts, prevStats.last_sync_at);
+
+    // 2. Load saved fingerprints — compare every contact against last known state
+    const savedFp = (await kvGet<Record<string, string>>(KV_CONTACT_FP)) ?? {};
+
+    // 3. Only process contacts whose data has changed since the last sync
+    const contacts = allContacts.filter((c) => {
+      const fp = fullFingerprint(c);
+      return savedFp[c.email.toLowerCase()] !== fp;
+    });
     contacts_processed = contacts.length;
 
     if (contacts.length > 0) {
-      // 4. Upsert to Mailchimp (merge fields + tags, concurrency-limited)
-      const knownEmailsArr = (await kvGet<string[]>(KV_KNOWN_EMAILS)) ?? [];
-      const knownEmails = new Set(knownEmailsArr.map((e) => e.toLowerCase()));
+      // 4. Upsert changed contacts to Mailchimp
+      const results = await upsertContacts(contacts, new Set());
 
-      const results = await upsertContacts(contacts, knownEmails);
-
+      const updatedFp: Record<string, string> = { ...savedFp };
       for (const r of results) {
-        if (r.status === "new") new_added++;
-        else if (r.status === "updated") updated++;
-        else if (r.status === "error") {
+        if (r.status === "new") {
+          new_added++;
+          // Save fingerprint for newly added contacts
+          const c = contacts.find((x) => x.email.toLowerCase() === r.email.toLowerCase());
+          if (c) updatedFp[r.email.toLowerCase()] = fullFingerprint(c);
+        } else if (r.status === "updated") {
+          updated++;
+          const c = contacts.find((x) => x.email.toLowerCase() === r.email.toLowerCase());
+          if (c) updatedFp[r.email.toLowerCase()] = fullFingerprint(c);
+        } else if (r.status === "error") {
           errors++;
           if (error_details.length < 10) error_details.push(`${r.email}: ${r.error}`);
+          // Do NOT save fingerprint on error — contact will be retried next sync
         }
       }
 
-      // 5. Update known emails
-      const successEmails = results
-        .filter((r) => r.status !== "error")
-        .map((r) => r.email.toLowerCase());
-      const updatedKnown = Array.from(new Set([...knownEmailsArr, ...successEmails]));
-      await kvSet(KV_KNOWN_EMAILS, updatedKnown);
+      await kvSet(KV_CONTACT_FP, updatedFp);
     }
 
     if (errors > 0 && errors < contacts_processed) status = "partial";
@@ -129,7 +108,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
   await kvSet(`sync:log:${id}`, log);
   await kvLpush(KV_LOG_IDS, id);
 
-  const prevStats2 = (await kvGet<SyncStats>(KV_STATS)) ?? {
+  const prevStats = (await kvGet<SyncStats>(KV_STATS)) ?? {
     total_ever_synced: 0,
     last_sync_at: null,
     last_sync_status: "never" as const,
@@ -139,7 +118,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
   };
 
   await kvSet(KV_STATS, {
-    total_ever_synced: prevStats2.total_ever_synced + new_added,
+    total_ever_synced: prevStats.total_ever_synced + new_added,
     last_sync_at: log.timestamp,
     last_sync_status: log.status,
     last_new_added: new_added,
