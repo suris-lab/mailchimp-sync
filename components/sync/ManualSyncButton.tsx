@@ -34,11 +34,11 @@ export function ManualSyncButton() {
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
-        if (attempts > 100) {
-          // 5 minutes max — give up polling
+        if (attempts > 30) {
+          // 90 seconds max — if still no update, sync likely timed out on server
           clearInterval(interval);
           setLoading(false);
-          setMessage({ text: "Sync is running — check stats in a moment", ok: true });
+          setMessage({ text: "Sync timed out — check /api/debug or Vercel logs", ok: false });
           return;
         }
 

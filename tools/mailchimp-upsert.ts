@@ -90,7 +90,8 @@ async function withConcurrency<T>(
 
 export async function upsertContacts(
   contacts: SheetContact[],
-  _knownEmails: Set<string>
+  _knownEmails: Set<string>,
+  skipTags = false
 ): Promise<ContactSyncResult[]> {
   const audienceId = process.env.MAILCHIMP_AUDIENCE_ID!;
   const mc = await getMailchimp();
@@ -118,7 +119,10 @@ export async function upsertContacts(
     }
   }
 
-  // Step 2: apply tags — skip contacts whose tag data hasn't changed (KV-persisted fingerprints)
+  // Step 2: apply tags — skipped entirely on first run to keep it within time limits
+  if (skipTags) return results;
+
+  // Apply tags — skip contacts whose tag data hasn't changed (KV-persisted fingerprints)
   const successEmails = new Set(
     results.filter((r) => r.status !== "error").map((r) => r.email.toLowerCase())
   );

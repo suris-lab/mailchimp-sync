@@ -88,10 +88,10 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     const allContacts = await fetchSheetContacts();
     total_contacts = allContacts.length;
 
-    // 2. Load saved fingerprints — compare every contact against last known state
+    // 3. Load saved fingerprints — compare every contact against last known state
     const savedFp = (await kvGet<Record<string, string>>(KV_CONTACT_FP)) ?? {};
+    const isFirstRun = Object.keys(savedFp).length === 0;
 
-    // 3. Only process contacts whose data has changed since the last sync
     const contacts = allContacts.filter((c) => {
       const fp = fullFingerprint(c);
       return savedFp[c.email.toLowerCase()] !== fp;
@@ -99,8 +99,11 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     contacts_processed = contacts.length;
 
     if (contacts.length > 0) {
-      // 4. Upsert changed contacts to Mailchimp
-      const results = await upsertContacts(contacts, new Set());
+      // 4. Upsert changed contacts to Mailchimp.
+      // On first run (no fingerprints yet) skip tag API calls — merge fields only.
+      // Tags sync on the next run when fingerprints exist and only a small
+      // number of changed contacts need processing.
+      const results = await upsertContacts(contacts, new Set(), isFirstRun);
 
       const updatedFp: Record<string, string> = { ...savedFp };
       for (const r of results) {
