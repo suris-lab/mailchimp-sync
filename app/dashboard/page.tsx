@@ -12,6 +12,7 @@ import { SyncLogTable } from "@/components/sync/SyncLogTable";
 import { ManualSyncButton } from "@/components/sync/ManualSyncButton";
 import { AudienceStatsPanel } from "@/components/stats/AudienceStatsPanel";
 import { GrowthPanel } from "@/components/growth/GrowthPanel";
+import { CampaignPanel } from "@/components/campaigns/CampaignPanel";
 import { useSyncStats } from "@/hooks/useSyncStats";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
@@ -156,6 +157,15 @@ export default function DashboardPage() {
             </div>
           </div>
           {historyOpen && <SyncLogTable logs={logsData?.logs ?? []} isLoading={logsLoading} />}
+        </section>
+
+        {/* ── Campaign Analytics ── */}
+        <section>
+          <SectionHeader
+            title="Campaign Analytics"
+            subtitle="Mailchimp email performance · categorised by subject"
+          />
+          <CampaignPanel />
         </section>
       </main>
 

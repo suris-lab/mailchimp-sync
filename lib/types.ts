@@ -80,6 +80,34 @@ export interface GrowthStats {
   dailyNew: { date: string; value: number }[]; // 120 entries, chronological
 }
 
+// Mailchimp campaign categories
+export type CampaignCategory = "Weekly What's On" | "Member Notice" | "Standalone EDM";
+
+// Single campaign report record
+export interface CampaignRecord {
+  id: string;
+  subject: string;
+  sent_time: string;        // ISO8601
+  emails_sent: number;
+  opens: number;            // unique opens
+  open_rate: number;        // 0–1
+  clicks: number;           // unique clicks
+  click_rate: number;       // 0–1 (CTR)
+  unsubscribes: number;
+  category: CampaignCategory;
+}
+
+// API response shape for GET /api/campaigns
+export interface CampaignStats {
+  campaigns: CampaignRecord[];
+  totals: {
+    count: number;
+    total_sent: number;
+    avg_open_rate: number;  // 0–1
+    avg_ctr: number;        // 0–1
+  };
+}
+
 // User-configured auto-sync schedule
 export type ScheduleInterval = -1 | 0 | 30 | 60 | 360 | 720 | 1440; // -1 = real-time (Apps Script), 0 = manual only
 

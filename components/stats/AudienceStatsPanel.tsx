@@ -24,6 +24,7 @@ const PIE_COLORS = [
 ];
 
 const BAR_COLORS = {
+  interest:       "#eb0029", // red — differentiates from other bars
   modifier:       "#6b7280",
   facility:       "#374151",
   skill:          "#7B5E3A",
@@ -273,12 +274,13 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
 
 // ── Bar chart with inline count labels ────────────────────────────────────────
 function InteractiveBarSection({
-  title, data, color, total,
+  title, data, color, total, bare = false,
 }: {
   title: string;
   data: Record<string, number>;
   color: string;
   total: number;
+  bare?: boolean; // when true: no card wrapper (caller owns the card)
 }) {
   const tc = useThemeColors();
   const [showAll, setShowAll] = useState(false);
@@ -288,7 +290,7 @@ function InteractiveBarSection({
 
   if (sorted.length === 0) {
     return (
-      <div className="card p-4">
+      <div className={bare ? "" : "card p-4"}>
         <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-3">{title}</p>
         <p className="text-xs text-gray-300 dark:text-gray-600">No data</p>
       </div>
@@ -300,11 +302,18 @@ function InteractiveBarSection({
   const chartH = visible.length * barH + 8;
 
   return (
-    <div className="card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">{title}</p>
-        <span className="text-[10px] text-gray-300 dark:text-gray-600">{sorted.length} values</span>
-      </div>
+    <div className={bare ? "" : "card p-4"}>
+      {!bare && (
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">{title}</p>
+          <span className="text-[10px] text-gray-300 dark:text-gray-600">{sorted.length} values</span>
+        </div>
+      )}
+      {bare && (
+        <div className="flex justify-end mb-2">
+          <span className="text-[10px] text-gray-300 dark:text-gray-600">{sorted.length} values</span>
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={chartH}>
         <BarChart
           data={visible}
@@ -434,13 +443,22 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
         <MembershipPieChart data={stats.membership} />
       </div>
 
-      {/* ── Interest — pie chart ── */}
+      {/* ── Interest — full-width bar chart (red, differentiated) ── */}
       <div className="card p-4">
-        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Interest</p>
-        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 mb-1">
-          Name and % on each slice · "Blank" = contacts with no interest recorded
+        <div className="flex items-center gap-2 mb-1">
+          <span className="inline-block w-2 h-2 rounded-full bg-hebe-red" />
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Interest</p>
+        </div>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-3">
+          Count at bar end · hover for % of total · "Blank" = contacts with no interest recorded
         </p>
-        <TagPieChart data={stats.tags.interest} />
+        <InteractiveBarSection
+          title=""
+          bare
+          data={stats.tags.interest}
+          color={BAR_COLORS.interest}
+          total={total}
+        />
       </div>
 
       {/* ── Membership Modifier ── */}
