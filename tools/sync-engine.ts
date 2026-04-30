@@ -19,12 +19,18 @@ async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> 
   const administrative: Record<string, number> = {};
 
   for (const c of allContacts) {
-    if (c.membership)         membership[c.membership]               = (membership[c.membership] ?? 0) + 1;
+    if (c.membership)         membership[c.membership]                  = (membership[c.membership] ?? 0) + 1;
     if (c.membershipModifier) membership_modifier[c.membershipModifier] = (membership_modifier[c.membershipModifier] ?? 0) + 1;
-    for (const v of c.interest)      interest[v]      = (interest[v] ?? 0) + 1;
-    for (const v of c.facility)      facility[v]      = (facility[v] ?? 0) + 1;
-    for (const v of c.skill)         skill[v]         = (skill[v] ?? 0) + 1;
-    for (const v of c.administrative) administrative[v] = (administrative[v] ?? 0) + 1;
+
+    // Tag fields — track contacts with no value as "Blank" so they appear in charts
+    if (c.interest.length > 0)       { for (const v of c.interest)       interest[v]       = (interest[v] ?? 0) + 1; }
+    else                             { interest["Blank"]                  = (interest["Blank"] ?? 0) + 1; }
+    if (c.facility.length > 0)       { for (const v of c.facility)       facility[v]       = (facility[v] ?? 0) + 1; }
+    else                             { facility["Blank"]                  = (facility["Blank"] ?? 0) + 1; }
+    if (c.skill.length > 0)          { for (const v of c.skill)          skill[v]          = (skill[v] ?? 0) + 1; }
+    else                             { skill["Blank"]                     = (skill["Blank"] ?? 0) + 1; }
+    if (c.administrative.length > 0) { for (const v of c.administrative) administrative[v] = (administrative[v] ?? 0) + 1; }
+    else                             { administrative["Blank"]            = (administrative["Blank"] ?? 0) + 1; }
   }
 
   let total_mailchimp_members = 0;

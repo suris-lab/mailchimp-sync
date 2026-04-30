@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const [start, setStart] = useState(daysAgo(29));
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [overviewOpen, setOverviewOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useSyncStats();
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
@@ -123,20 +124,38 @@ export default function DashboardPage() {
           <AudienceStatsPanel stats={audienceStats} isLoading={audienceLoading} />
         </section>
 
-        {/* ── Sync History ── */}
+        {/* ── Sync History (collapsible) ── */}
         <section>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-            <SectionHeader
-              title="Sync History"
-              subtitle={`${logsData?.total ?? 0} run(s) in selected range`}
-            />
-            <DateRangePicker
-              start={start}
-              end={end}
-              onChange={(s, e) => { setStart(s); setEnd(e); }}
-            />
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="block h-4 w-0.5 rounded-full bg-hebe-red shrink-0" />
+              <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white uppercase">
+                Sync History
+              </h2>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5 hidden sm:inline">
+                — {logsData?.total ?? 0} run(s) in range
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {historyOpen && (
+                <DateRangePicker
+                  start={start}
+                  end={end}
+                  onChange={(s, e) => { setStart(s); setEnd(e); }}
+                />
+              )}
+              <button
+                onClick={() => setHistoryOpen((v) => !v)}
+                className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700
+                           px-2.5 py-1.5 text-[11px] text-gray-400 dark:text-gray-500
+                           hover:border-gray-400 dark:hover:border-gray-500 transition-colors shrink-0"
+              >
+                {historyOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                {historyOpen ? "Collapse" : "Expand"}
+              </button>
+            </div>
           </div>
-          <SyncLogTable logs={logsData?.logs ?? []} isLoading={logsLoading} />
+          {historyOpen && <SyncLogTable logs={logsData?.logs ?? []} isLoading={logsLoading} />}
         </section>
       </main>
 

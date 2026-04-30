@@ -9,7 +9,7 @@ import {
 import type { AudienceStats } from "@/lib/types";
 import { useThemeColors } from "@/hooks/useThemeColors";
 
-// ── Colours — red + grays + tiny navy/brown accents ──────────────────────────
+// ── Colours ───────────────────────────────────────────────────────────────────
 const PIE_COLORS = [
   "#eb0029", // HHYC red — primary slice
   "#6b7280", // gray-500
@@ -18,17 +18,16 @@ const PIE_COLORS = [
   "#4b5563", // gray-600
   "#d1d5db", // gray-300
   "#c40022", // dark red
-  "#05308C", // HHYC navy (branded accent)
-  "#7B5E3A", // HHYC brown (branded accent)
+  "#05308C", // HHYC navy
+  "#7B5E3A", // HHYC brown
   "#1f2937", // gray-800
 ];
 
 const BAR_COLORS = {
-  modifier:       "#6b7280", // gray-500
-  interest:       "#eb0029", // HHYC red
-  facility:       "#374151", // gray-700
-  skill:          "#7B5E3A", // HHYC brown
-  administrative: "#05308C", // HHYC navy
+  modifier:       "#6b7280",
+  facility:       "#374151",
+  skill:          "#7B5E3A",
+  administrative: "#05308C",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -53,8 +52,8 @@ function groupSmallSlices(
   return main;
 }
 
-// ── Shared tooltip ────────────────────────────────────────────────────────────
-function ChartTooltip({
+// ── Shared pie tooltip ────────────────────────────────────────────────────────
+function PieTooltip({
   active, payload, totalForPct, tc,
 }: {
   active?: boolean;
@@ -78,10 +77,125 @@ function ChartTooltip({
   );
 }
 
-// ── Membership — donut with visible % labels ──────────────────────────────────
+// Shared bar tooltip
+function BarTooltip({
+  active, payload, totalForPct, tc,
+}: {
+  active?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: readonly any[];
+  totalForPct: number;
+  tc: ReturnType<typeof useThemeColors>;
+}) {
+  if (!active || !payload?.length) return null;
+  const { name, value } = payload[0].payload as { name: string; value: number };
+  const pct = totalForPct > 0 ? ((value / totalForPct) * 100).toFixed(1) : "–";
+  return (
+    <div
+      style={{ background: tc.tooltipBg, border: `1px solid ${tc.tooltipBorder}` }}
+      className="rounded-lg px-3 py-2 text-xs shadow-xl max-w-[220px]"
+    >
+      <p style={{ color: tc.tooltipTitle }} className="font-semibold break-words">{name}</p>
+      <p style={{ color: tc.tooltipMuted }} className="mt-0.5">{value.toLocaleString()} contacts</p>
+      <p style={{ color: tc.tooltipAccent }} className="font-semibold mt-0.5">{pct}% of total</p>
+    </div>
+  );
+}
+
+// ── Shared pie label renderer — name line + % line ────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makePieLabel(tc: ReturnType<typeof useThemeColors>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function PieLabel({ cx, cy, midAngle, outerRadius, percent, name }: any) {
+    if (percent < 0.05) return null; // skip tiny slices to avoid crowding
+    const r = outerRadius + (tc.mobile ? 22 : 30);
+    const x = cx + r * Math.cos(-midAngle * RADIAN);
+    const y = cy + r * Math.sin(-midAngle * RADIAN);
+    const anchor = x > cx ? "start" : "end";
+    // Truncate long names so labels don't overflow
+    const short = name.length > 15 ? name.slice(0, 14) + "…" : name;
+    return (
+      <g>
+        <text
+          x={x} y={y - 6}
+          fill={tc.labelColor}
+          textAnchor={anchor}
+          fontSize={tc.mobile ? 8 : 9}
+          fontWeight="500"
+        >
+          {short}
+        </text>
+        <text
+          x={x} y={y + 7}
+          fill={tc.labelColor}
+          textAnchor={anchor}
+          fontSize={tc.mobile ? 9 : 11}
+          fontWeight="700"
+        >
+          {`${(percent * 100).toFixed(0)}%`}
+        </text>
+      </g>
+    );
+  };
+}
+
+// ── Generic pie/donut chart ───────────────────────────────────────────────────
+function TagPieChart({ data }: { data: Record<string, number> }) {
+  const tc = useThemeColors();
+  const slices = groupSmallSlices(data);
+  const total = slices.reduce((s, d) => s + d.value, 0);
+  const renderLabel = makePieLabel(tc);
+
+  if (slices.length === 0) {
+    return <p className="py-10 text-center text-xs text-gray-300 dark:text-gray-600">No data</p>;
+  }
+
+  const chartH = tc.mobile ? 260 : 320;
+  const innerR = tc.mobile ? 42 : 55;
+  const outerR = tc.mobile ? 72 : 92;
+
+  return (
+    <ResponsiveContainer width="100%" height={chartH}>
+      <PieChart>
+        <Pie
+          data={slices}
+          cx="50%"
+          cy="44%"
+          innerRadius={innerR}
+          outerRadius={outerR}
+          paddingAngle={2}
+          dataKey="value"
+          label={renderLabel}
+          labelLine={{ stroke: tc.tickColor, strokeWidth: 1 }}
+          isAnimationActive
+        >
+          {slices.map((_, i) => (
+            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
+          ))}
+        </Pie>
+        <Tooltip
+          content={({ active, payload }) => (
+            <PieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
+          )}
+        />
+        <Legend
+          iconType="circle"
+          iconSize={6}
+          wrapperStyle={{ paddingTop: 8, fontSize: 10 }}
+          formatter={(value: string) => (
+            <span style={{ color: tc.labelColor, fontSize: 10 }}>{value}</span>
+          )}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── Membership donut — with non-member toggle (default: hidden) ───────────────
 function MembershipPieChart({ data }: { data: Record<string, number> }) {
   const tc = useThemeColors();
-  const [excludeNonMembers, setExcludeNonMembers] = useState(false);
+  // Non-members excluded by default
+  const [excludeNonMembers, setExcludeNonMembers] = useState(true);
 
   const filteredData = excludeNonMembers
     ? Object.fromEntries(Object.entries(data).filter(([k]) => !k.toLowerCase().includes("non")))
@@ -89,6 +203,7 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
 
   const slices = groupSmallSlices(filteredData);
   const total = slices.reduce((s, d) => s + d.value, 0);
+  const renderLabel = makePieLabel(tc);
 
   const toggleBtn = (
     <button
@@ -112,68 +227,46 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
     );
   }
 
-  // Render % label outside each slice (skip tiny slices to avoid overlap)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderLabel = ({ cx, cy, midAngle, outerRadius, percent }: any) => {
-    if (percent < 0.04) return null;
-    const r = outerRadius + (tc.mobile ? 18 : 26);
-    const x = cx + r * Math.cos(-midAngle * RADIAN);
-    const y = cy + r * Math.sin(-midAngle * RADIAN);
-    return (
-      <text
-        x={x}
-        y={y}
-        fill={tc.labelColor}
-        textAnchor={x > cx ? "start" : "end"}
-        dominantBaseline="central"
-        fontSize={tc.mobile ? 9 : 11}
-        fontWeight="700"
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
-
   const chartH = tc.mobile ? 260 : 320;
-  const innerR = tc.mobile ? 45 : 58;
-  const outerR = tc.mobile ? 78 : 100;
+  const innerR = tc.mobile ? 42 : 55;
+  const outerR = tc.mobile ? 72 : 92;
 
   return (
     <div>
       <div className="mb-3">{toggleBtn}</div>
-    <ResponsiveContainer width="100%" height={chartH}>
-      <PieChart>
-        <Pie
-          data={slices}
-          cx="50%"
-          cy="44%"
-          innerRadius={innerR}
-          outerRadius={outerR}
-          paddingAngle={2}
-          dataKey="value"
-          label={renderLabel}
-          labelLine={{ stroke: tc.tickColor, strokeWidth: 1 }}
-          isAnimationActive
-        >
-          {slices.map((_, i) => (
-            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
-          ))}
-        </Pie>
-        <Tooltip
-          content={({ active, payload }) => (
-            <ChartTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
-          )}
-        />
-        <Legend
-          iconType="circle"
-          iconSize={7}
-          wrapperStyle={{ paddingTop: 8, fontSize: 11 }}
-          formatter={(value: string) => (
-            <span style={{ color: tc.labelColor, fontSize: 11 }}>{value}</span>
-          )}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+      <ResponsiveContainer width="100%" height={chartH}>
+        <PieChart>
+          <Pie
+            data={slices}
+            cx="50%"
+            cy="44%"
+            innerRadius={innerR}
+            outerRadius={outerR}
+            paddingAngle={2}
+            dataKey="value"
+            label={renderLabel}
+            labelLine={{ stroke: tc.tickColor, strokeWidth: 1 }}
+            isAnimationActive
+          >
+            {slices.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
+            ))}
+          </Pie>
+          <Tooltip
+            content={({ active, payload }) => (
+              <PieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
+            )}
+          />
+          <Legend
+            iconType="circle"
+            iconSize={6}
+            wrapperStyle={{ paddingTop: 8, fontSize: 10 }}
+            formatter={(value: string) => (
+              <span style={{ color: tc.labelColor, fontSize: 10 }}>{value}</span>
+            )}
+          />
+        </PieChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -230,7 +323,7 @@ function InteractiveBarSection({
           <Tooltip
             cursor={{ fill: tc.cursorFill }}
             content={({ active, payload }) => (
-              <ChartTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
+              <BarTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
             )}
           />
           <Bar dataKey="value" fill={color} radius={[0, 3, 3, 0]} barSize={tc.mobile ? 10 : 13}>
@@ -272,9 +365,10 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
           {[...Array(2)].map((_, i) => <div key={i} className={`h-24 ${skeletonCls}`} />)}
         </div>
         <div className={`h-72 ${skeletonCls}`} />
+        <div className={`h-72 ${skeletonCls}`} />
         <div className={`h-40 ${skeletonCls}`} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {[...Array(4)].map((_, i) => <div key={i} className={`h-44 ${skeletonCls}`} />)}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[...Array(3)].map((_, i) => <div key={i} className={`h-44 ${skeletonCls}`} />)}
         </div>
       </div>
     );
@@ -294,7 +388,8 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
 
   return (
     <div className="space-y-5">
-      {/* Overview KPI cards */}
+
+      {/* ── Overview KPI cards ── */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <div className="card p-4 flex items-start gap-3">
           <div className="rounded-lg bg-hebe-red/10 p-2 shrink-0">
@@ -330,26 +425,34 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
         </div>
       </div>
 
-      {/* Membership — donut with % labels visible without hover */}
+      {/* ── Membership — donut, non-members hidden by default ── */}
       <div className="card p-4">
         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Membership</p>
         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 mb-1">
-          % shown on each slice · hover for contact count
+          Name and % on each slice · hover for contact count
         </p>
         <MembershipPieChart data={stats.membership} />
       </div>
 
-      {/* Membership Modifier */}
+      {/* ── Interest — pie chart ── */}
+      <div className="card p-4">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Interest</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 mb-1">
+          Name and % on each slice · "Blank" = contacts with no interest recorded
+        </p>
+        <TagPieChart data={stats.tags.interest} />
+      </div>
+
+      {/* ── Membership Modifier ── */}
       <InteractiveBarSection
-        title="Membership Modifier — count shown at bar end · hover for %"
+        title="Membership Modifier"
         data={stats.membership_modifier}
         color={BAR_COLORS.modifier}
         total={total}
       />
 
-      {/* Tag breakdown 2×2 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <InteractiveBarSection title="Interest"       data={stats.tags.interest}       color={BAR_COLORS.interest}       total={total} />
+      {/* ── Facility, Skill, Administrative — 3-column grid ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <InteractiveBarSection title="Facility"       data={stats.tags.facility}       color={BAR_COLORS.facility}       total={total} />
         <InteractiveBarSection title="Skill"          data={stats.tags.skill}          color={BAR_COLORS.skill}          total={total} />
         <InteractiveBarSection title="Administrative" data={stats.tags.administrative} color={BAR_COLORS.administrative} total={total} />
