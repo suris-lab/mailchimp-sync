@@ -47,12 +47,15 @@ export function ManualSyncButton() {
           if (stats.last_sync_at && stats.last_sync_at !== prevSyncAt) {
             clearInterval(interval);
             setLoading(false);
+            const skipped = stats.last_sync_status === "skipped";
             const ok = stats.last_sync_status !== "error";
             setMessage({
-              text: ok
+              text: skipped
+                ? "No changes — Mailchimp is already up to date"
+                : ok
                 ? `Done — ${stats.last_new_added} new, ${stats.last_updated} updated`
                 : `Finished with errors — ${stats.last_errors} failed`,
-              ok,
+              ok: ok || skipped,
             });
             await mutate("/api/sync-stats");
             await mutate(

@@ -14,6 +14,7 @@ function statusBadge(status: SyncLog["status"]) {
     success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
     partial: "bg-amber-500/10 text-amber-400 border-amber-500/30",
     error: "bg-red-500/10 text-red-400 border-red-500/30",
+    skipped: "bg-gray-500/10 text-gray-400 border-gray-500/30",
   };
   return (
     <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[status]}`}>

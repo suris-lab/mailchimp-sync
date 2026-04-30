@@ -20,7 +20,7 @@ const COL = {
   PHONE: "Phone",
 } as const;
 
-function getAuth() {
+function getAuth(scopes: string[] = ["https://www.googleapis.com/auth/spreadsheets.readonly"]) {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
@@ -30,8 +30,26 @@ function getAuth() {
 
   return new google.auth.GoogleAuth({
     credentials: { client_email: email, private_key: key },
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    scopes,
   });
+}
+
+// Returns the Drive modifiedTime for the sheet, or null if unavailable.
+// Used to skip syncs when the sheet hasn't changed.
+export async function getSheetModifiedTime(): Promise<string | null> {
+  const sheetId = process.env.SHEET_ID;
+  if (!sheetId) return null;
+  try {
+    const auth = getAuth([
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "https://www.googleapis.com/auth/drive.metadata.readonly",
+    ]);
+    const drive = google.drive({ version: "v3", auth });
+    const res = await drive.files.get({ fileId: sheetId, fields: "modifiedTime" });
+    return res.data.modifiedTime ?? null;
+  } catch {
+    return null; // Drive API unavailable — fall through to full sync
+  }
 }
 
 export async function fetchSheetContacts(): Promise<SheetContact[]> {

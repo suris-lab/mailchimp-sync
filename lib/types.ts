@@ -37,7 +37,7 @@ export interface SyncLog {
   errors: number;
   error_details: string[];
   duration_ms: number;
-  status: "success" | "partial" | "error";
+  status: "success" | "partial" | "error" | "skipped";
 }
 
 // Aggregate KPI stats — single KV key for fast dashboard reads

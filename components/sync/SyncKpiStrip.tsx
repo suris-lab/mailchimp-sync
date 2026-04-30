@@ -30,6 +30,7 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
     stats?.last_sync_status === "success" ? "green"
     : stats?.last_sync_status === "partial" ? "amber"
     : stats?.last_sync_status === "error" ? "pink"
+    : stats?.last_sync_status === "skipped" ? "blue"
     : "blue";
 
   return (
