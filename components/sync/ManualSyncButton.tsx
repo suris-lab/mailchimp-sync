@@ -10,22 +10,64 @@ export function ManualSyncButton() {
 
   async function handleSync() {
     setLoading(true);
-    setMessage(null);
+    setMessage({ text: "Starting…", ok: true });
+
     try {
+      // Snapshot the current sync time so we know when a new one completes
+      const statsBefore = await fetch("/api/sync-stats")
+        .then((r) => r.json())
+        .catch(() => null);
+      const prevSyncAt: string | null = statsBefore?.last_sync_at ?? null;
+
+      // Trigger sync — returns 202 immediately, runs in background
       const res = await fetch("/api/sync", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setMessage({ text: `Done — ${data.log.new_added} new, ${data.log.updated} updated`, ok: true });
-        await mutate("/api/sync-stats");
-        // Mutate all sync-logs keys (date-range agnostic)
-        await mutate((key) => typeof key === "string" && key.startsWith("/api/sync-logs"), undefined, { revalidate: true });
-      } else {
-        setMessage({ text: data.error ?? "Sync failed", ok: false });
+
+      if (res.status === 409) {
+        setMessage({ text: "Sync already in progress — wait a moment", ok: false });
+        setLoading(false);
+        return;
       }
+
+      setMessage({ text: "Syncing…", ok: true });
+
+      // Poll /api/sync-stats every 3 s until last_sync_at changes
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        if (attempts > 100) {
+          // 5 minutes max — give up polling
+          clearInterval(interval);
+          setLoading(false);
+          setMessage({ text: "Sync is running — check stats in a moment", ok: true });
+          return;
+        }
+
+        try {
+          const stats = await fetch("/api/sync-stats").then((r) => r.json());
+          if (stats.last_sync_at && stats.last_sync_at !== prevSyncAt) {
+            clearInterval(interval);
+            setLoading(false);
+            const ok = stats.last_sync_status !== "error";
+            setMessage({
+              text: ok
+                ? `Done — ${stats.last_new_added} new, ${stats.last_updated} updated`
+                : `Finished with errors — ${stats.last_errors} failed`,
+              ok,
+            });
+            await mutate("/api/sync-stats");
+            await mutate(
+              (key) => typeof key === "string" && key.startsWith("/api/sync-logs"),
+              undefined,
+              { revalidate: true }
+            );
+          }
+        } catch {
+          // ignore transient poll failures
+        }
+      }, 3000);
     } catch (err) {
-      setMessage({ text: `Request failed: ${String(err)}`, ok: false });
-    } finally {
       setLoading(false);
+      setMessage({ text: `Could not start sync: ${String(err)}`, ok: false });
     }
   }
 
