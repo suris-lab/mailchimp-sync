@@ -108,7 +108,32 @@ export interface CampaignStats {
   };
 }
 
-// User-configured auto-sync schedule
+// ── Lifecycle Tracking ─────────────────────────────────────────────────────────
+
+export type LifecycleStage = "new" | "active" | "cold" | "dead";
+
+export interface LifecycleStageCounts {
+  new:    number;
+  active: number;
+  cold:   number;
+  dead:   number;
+  total:  number;
+}
+
+export interface LifecycleHistoryEntry {
+  date:   string;              // "YYYY-MM-DD"
+  stages: LifecycleStageCounts;
+}
+
+export interface LifecycleStats {
+  computed_at: string;
+  current:     LifecycleStageCounts;
+  healthScore: number;         // 0–100, pre-computed
+  history:     LifecycleHistoryEntry[];  // max 90 entries, chronological
+}
+
+// ── User-configured auto-sync schedule ────────────────────────────────────────
+
 export type ScheduleInterval = -1 | 0 | 30 | 60 | 360 | 720 | 1440; // -1 = real-time (Apps Script), 0 = manual only
 
 export interface SyncSchedule {

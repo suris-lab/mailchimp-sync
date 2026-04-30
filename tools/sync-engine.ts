@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "crypto";
-import type { SyncLog, SyncStats, SyncSchedule, SheetContact, AudienceStats } from "@/lib/types";
+import type { SyncLog, SyncStats, SyncSchedule, SheetContact, AudienceStats, LifecycleStats, LifecycleStageCounts } from "@/lib/types";
 import { fetchSheetContacts, getSheetModifiedTime } from "./google-sheets";
 import { upsertContacts } from "./mailchimp-upsert";
 import { kvGet, kvSet, kvLpush } from "@/lib/kv";
@@ -9,6 +9,7 @@ const KV_LOG_IDS = "sync:log_ids";
 const KV_SCHEDULE = "sync:schedule";
 const KV_CONTACT_FP = "sync:contact_fingerprints";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
+const KV_LIFECYCLE_STATS = "sync:lifecycle_stats";
 
 async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> {
   const membership: Record<string, number> = {};
@@ -54,6 +55,72 @@ async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> 
   };
 
   await kvSet("sync:audience_stats", stats);
+}
+
+async function computeLifecycleStats(allContacts: SheetContact[]): Promise<void> {
+  const audienceId = process.env.MAILCHIMP_AUDIENCE_ID!;
+  const now = Date.now();
+  const DAY_MS = 86_400_000;
+
+  // Fetch last_open/last_click for all members in one call.
+  // HHYC < 500 contacts; add pagination loop if count ever exceeds 1000.
+  let memberActivity: Record<string, { lastOpen?: string; lastClick?: string }> = {};
+  try {
+    const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
+    mc.setConfig({ apiKey: process.env.MAILCHIMP_API_KEY!, server: process.env.MAILCHIMP_SERVER_PREFIX! });
+    const res = await mc.lists.getListMembersInfo(audienceId, {
+      fields: ["members.email_address", "members.last_open", "members.last_click"],
+      count: 1000,
+      offset: 0,
+    }) as any;
+    for (const m of (res.members ?? []) as any[]) {
+      memberActivity[m.email_address.toLowerCase()] = {
+        lastOpen:  m.last_open  ?? undefined,
+        lastClick: m.last_click ?? undefined,
+      };
+    }
+  } catch { /* fail silently — stages degrade to sheet-only data */ }
+
+  const counts: LifecycleStageCounts = { new: 0, active: 0, cold: 0, dead: 0, total: allContacts.length };
+
+  for (const c of allContacts) {
+    // createdAt comes from the sheet as-is; Date.parse handles "YYYY-MM-DD" and "M/D/YYYY" on V8.
+    // If the sheet uses DD/MM/YYYY (non-US), Date.parse returns NaN and the contact falls through
+    // to activity-based classification — acceptable degradation.
+    const createdMs = c.createdAt ? Date.parse(c.createdAt) : NaN;
+    if (!isNaN(createdMs) && now - createdMs <= 7 * DAY_MS) { counts.new++; continue; }
+
+    const act = memberActivity[c.email.toLowerCase()];
+    const lastOpenMs  = act?.lastOpen  ? Date.parse(act.lastOpen)  : NaN;
+    const lastClickMs = act?.lastClick ? Date.parse(act.lastClick) : NaN;
+    const mostRecentMs = Math.max(
+      isNaN(lastOpenMs)  ? -Infinity : lastOpenMs,
+      isNaN(lastClickMs) ? -Infinity : lastClickMs,
+    );
+    const ageDays = isFinite(mostRecentMs) ? (now - mostRecentMs) / DAY_MS : Infinity;
+
+    if (ageDays <= 30)                        { counts.active++; continue; }
+    if (!isFinite(ageDays) || ageDays >= 90)  { counts.dead++;   continue; }
+    counts.cold++;
+  }
+
+  const healthScore = counts.total > 0
+    ? Math.round((counts.active * 100 + counts.new * 70 + counts.cold * 20) / counts.total)
+    : 0;
+
+  // Upsert today's snapshot — one entry per calendar day, max 90 entries kept
+  const today = new Date().toISOString().slice(0, 10);
+  const prev = await kvGet<LifecycleStats>(KV_LIFECYCLE_STATS);
+  const history = (prev?.history ?? []).filter(h => h.date !== today);
+  history.push({ date: today, stages: counts });
+  if (history.length > 90) history.splice(0, history.length - 90);
+
+  await kvSet(KV_LIFECYCLE_STATS, {
+    computed_at: new Date().toISOString(),
+    current: counts,
+    healthScore,
+    history,
+  } satisfies LifecycleStats);
 }
 
 export async function shouldSkipCronSync(): Promise<boolean> {
@@ -137,6 +204,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
 
     // 3. Compute audience stats from the full contact list and store in KV
     computeAudienceStats(allContacts).catch(() => {}); // fire-and-forget, non-blocking
+    computeLifecycleStats(allContacts).catch(() => {});
 
     // 4. Load saved fingerprints — compare every contact against last known state
     const savedFp = (await kvGet<Record<string, string>>(KV_CONTACT_FP)) ?? {};

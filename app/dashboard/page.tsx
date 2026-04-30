@@ -13,10 +13,12 @@ import { ManualSyncButton } from "@/components/sync/ManualSyncButton";
 import { AudienceStatsPanel } from "@/components/stats/AudienceStatsPanel";
 import { GrowthPanel } from "@/components/growth/GrowthPanel";
 import { CampaignPanel } from "@/components/campaigns/CampaignPanel";
+import { LifecyclePanel } from "@/components/lifecycle/LifecyclePanel";
 import { useSyncStats } from "@/hooks/useSyncStats";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
 import { useGrowthStats } from "@/hooks/useGrowthStats";
+import { useLifecycleStats } from "@/hooks/useLifecycleStats";
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -34,6 +36,7 @@ export default function DashboardPage() {
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
   const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
   const { data: growthStats, isLoading: growthLoading } = useGrowthStats();
+  const { data: lifecycleStats, isLoading: lifecycleLoading } = useLifecycleStats();
 
   return (
     <div className="min-h-full bg-hebe-cream dark:bg-gray-950">
@@ -81,6 +84,15 @@ export default function DashboardPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-8 sm:space-y-10">
+
+        {/* ── Contact Lifecycle ── */}
+        <section>
+          <SectionHeader
+            title="Contact Lifecycle"
+            subtitle="Stage distribution and database health · computed on each sync"
+          />
+          <LifecyclePanel stats={lifecycleStats} isLoading={lifecycleLoading} />
+        </section>
 
         {/* ── Sync Overview (collapsible) ── */}
         <section>
