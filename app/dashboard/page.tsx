@@ -8,8 +8,10 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SyncKpiStrip } from "@/components/sync/SyncKpiStrip";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
 import { ManualSyncButton } from "@/components/sync/ManualSyncButton";
+import { AudienceStatsPanel } from "@/components/stats/AudienceStatsPanel";
 import { useSyncStats } from "@/hooks/useSyncStats";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
+import { useAudienceStats } from "@/hooks/useAudienceStats";
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -23,6 +25,7 @@ export default function DashboardPage() {
 
   const { data: stats, isLoading: statsLoading } = useSyncStats();
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
+  const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
 
   return (
     <div className="min-h-full bg-gray-950">
@@ -54,6 +57,15 @@ export default function DashboardPage() {
             subtitle="Auto-refreshes every 30 seconds"
           />
           <SyncKpiStrip stats={stats} isLoading={statsLoading} />
+        </section>
+
+        {/* Audience Insights */}
+        <section>
+          <SectionHeader
+            title="Audience Insights"
+            subtitle="Computed from the sheet on each sync"
+          />
+          <AudienceStatsPanel stats={audienceStats} isLoading={audienceLoading} />
         </section>
 
         {/* Sync Log */}

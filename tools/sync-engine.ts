@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "crypto";
-import type { SyncLog, SyncStats, SyncSchedule, SheetContact } from "@/lib/types";
+import type { SyncLog, SyncStats, SyncSchedule, SheetContact, AudienceStats } from "@/lib/types";
 import { fetchSheetContacts, getSheetModifiedTime } from "./google-sheets";
 import { upsertContacts } from "./mailchimp-upsert";
 import { kvGet, kvSet, kvLpush } from "@/lib/kv";
@@ -9,6 +9,46 @@ const KV_LOG_IDS = "sync:log_ids";
 const KV_SCHEDULE = "sync:schedule";
 const KV_CONTACT_FP = "sync:contact_fingerprints";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
+
+async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> {
+  const membership: Record<string, number> = {};
+  const membership_modifier: Record<string, number> = {};
+  const interest: Record<string, number> = {};
+  const facility: Record<string, number> = {};
+  const skill: Record<string, number> = {};
+  const administrative: Record<string, number> = {};
+
+  for (const c of allContacts) {
+    if (c.membership)         membership[c.membership]               = (membership[c.membership] ?? 0) + 1;
+    if (c.membershipModifier) membership_modifier[c.membershipModifier] = (membership_modifier[c.membershipModifier] ?? 0) + 1;
+    for (const v of c.interest)      interest[v]      = (interest[v] ?? 0) + 1;
+    for (const v of c.facility)      facility[v]      = (facility[v] ?? 0) + 1;
+    for (const v of c.skill)         skill[v]         = (skill[v] ?? 0) + 1;
+    for (const v of c.administrative) administrative[v] = (administrative[v] ?? 0) + 1;
+  }
+
+  let total_mailchimp_members = 0;
+  try {
+    const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
+    mc.setConfig({
+      apiKey: process.env.MAILCHIMP_API_KEY!,
+      server: process.env.MAILCHIMP_SERVER_PREFIX!,
+    });
+    const list = await mc.lists.getList(process.env.MAILCHIMP_AUDIENCE_ID!, { fields: ["stats.member_count"] });
+    total_mailchimp_members = list?.stats?.member_count ?? 0;
+  } catch { /* fail silently — sheet stats still show */ }
+
+  const stats: AudienceStats = {
+    computed_at: new Date().toISOString(),
+    total_mailchimp_members,
+    total_sheet_contacts: allContacts.length,
+    membership,
+    membership_modifier,
+    tags: { interest, facility, skill, administrative },
+  };
+
+  await kvSet("sync:audience_stats", stats);
+}
 
 export async function shouldSkipCronSync(): Promise<boolean> {
   const schedule = await kvGet<SyncSchedule>(KV_SCHEDULE);
@@ -88,7 +128,10 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     const allContacts = await fetchSheetContacts();
     total_contacts = allContacts.length;
 
-    // 3. Load saved fingerprints — compare every contact against last known state
+    // 3. Compute audience stats from the full contact list and store in KV
+    computeAudienceStats(allContacts).catch(() => {}); // fire-and-forget, non-blocking
+
+    // 4. Load saved fingerprints — compare every contact against last known state
     const savedFp = (await kvGet<Record<string, string>>(KV_CONTACT_FP)) ?? {};
     const isFirstRun = Object.keys(savedFp).length === 0;
 

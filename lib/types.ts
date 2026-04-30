@@ -56,6 +56,21 @@ export interface SyncLogsResponse {
   total: number;
 }
 
+// Aggregated audience statistics computed from the sheet on each sync
+export interface AudienceStats {
+  computed_at: string;
+  total_mailchimp_members: number;  // live from Mailchimp API
+  total_sheet_contacts: number;     // sheet row count
+  membership: Record<string, number>;
+  membership_modifier: Record<string, number>;
+  tags: {
+    interest: Record<string, number>;
+    facility: Record<string, number>;
+    skill: Record<string, number>;
+    administrative: Record<string, number>;
+  };
+}
+
 // User-configured auto-sync schedule
 export type ScheduleInterval = -1 | 0 | 30 | 60 | 360 | 720 | 1440; // -1 = real-time (Apps Script), 0 = manual only
 
