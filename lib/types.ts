@@ -40,6 +40,13 @@ export interface SyncLog {
   status: "success" | "partial" | "error" | "skipped";
 }
 
+// Cron attempt record — written at start of every GET /api/sync call
+export interface CronStatus {
+  hit_at: string;
+  result: "checking" | "auth_failed" | "skipped_schedule" | "lock_busy" | "started" | "completed" | "error";
+  error?: string;
+}
+
 // Aggregate KPI stats — single KV key for fast dashboard reads
 export interface SyncStats {
   total_ever_synced: number;
@@ -48,6 +55,7 @@ export interface SyncStats {
   last_new_added: number;
   last_updated: number;
   last_errors: number;
+  cron_status?: CronStatus | null; // injected by sync-stats API, not stored in this KV key
 }
 
 // Response shape for GET /api/sync-logs
