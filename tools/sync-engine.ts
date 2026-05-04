@@ -195,6 +195,16 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
         last_sync_status: "skipped",
       } satisfies SyncStats);
 
+      // Lifecycle stages evolve as Mailchimp engagement timestamps age — refresh
+      // even when the sheet is unchanged. Gate to once per hour to avoid excess API calls.
+      const lc = await kvGet<LifecycleStats>(KV_LIFECYCLE_STATS);
+      const lcAgeHours = lc ? (Date.now() - new Date(lc.computed_at).getTime()) / 3_600_000 : Infinity;
+      if (lcAgeHours > 1) {
+        fetchSheetContacts()
+          .then(contacts => computeLifecycleStats(contacts))
+          .catch(() => {});
+      }
+
       return log;
     }
 
