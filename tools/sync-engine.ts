@@ -7,9 +7,20 @@ import { kvGet, kvSet, kvLpush } from "@/lib/kv";
 const KV_STATS = "sync:stats";
 const KV_LOG_IDS = "sync:log_ids";
 const KV_SCHEDULE = "sync:schedule";
-const KV_CONTACT_FP = "sync:contact_fingerprints";
+// v2 key — keyed by memberId (fallback: email) storing { email, fp } pairs so email changes
+// can be detected. The old "sync:contact_fingerprints" key (email-keyed strings) is abandoned;
+// the first sync after deploy will do a one-time full re-sync of all contacts.
+const KV_CONTACT_FP = "sync:contact_fingerprints_v2";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
 const KV_LIFECYCLE_STATS = "sync:lifecycle_stats";
+
+type ContactFpEntry = { email: string; fp: string };
+
+// Stable identity key: memberId when available; fall back to email for contacts without one.
+// If a contact has no memberId and their email changes we cannot detect it — document accordingly.
+function stableKey(c: { memberId: string; email: string }): string {
+  return c.memberId.trim() || c.email.toLowerCase();
+}
 
 async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> {
   const membership: Record<string, number> = {};
@@ -211,34 +222,50 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     computeAudienceStats(allContacts).catch(() => {}); // fire-and-forget, non-blocking
     computeLifecycleStats(allContacts).catch(() => {});
 
-    // 4. Load saved fingerprints — compare every contact against last known state
-    const savedFp = (await kvGet<Record<string, string>>(KV_CONTACT_FP)) ?? {};
+    // 4. Load saved fingerprints — compare every contact against last known state.
+    //    Keyed by memberId (fallback: email); value is { email, fp } so we can detect
+    //    email address changes and route them to a PATCH call instead of batch upsert.
+    const savedFp = (await kvGet<Record<string, ContactFpEntry>>(KV_CONTACT_FP)) ?? {};
     const isFirstRun = Object.keys(savedFp).length === 0;
 
-    const contacts = allContacts.filter((c) => {
-      const fp = fullFingerprint(c);
-      return savedFp[c.email.toLowerCase()] !== fp;
-    });
+    const contacts: SheetContact[] = [];
+    for (const c of allContacts) {
+      const key = stableKey(c);
+      const saved = savedFp[key];
+      const currentFp = fullFingerprint(c);
+      if (!saved || saved.fp !== currentFp) {
+        if (saved && saved.email !== c.email.toLowerCase()) {
+          // Email has changed — attach old email so upsertContacts can PATCH the
+          // existing Mailchimp record rather than creating a duplicate contact.
+          contacts.push({ ...c, oldEmail: saved.email });
+        } else {
+          contacts.push(c);
+        }
+      }
+    }
     contacts_processed = contacts.length;
 
     if (contacts.length > 0) {
-      // 4. Upsert changed contacts to Mailchimp.
+      // Upsert changed contacts to Mailchimp.
       // On first run (no fingerprints yet) skip tag API calls — merge fields only.
       // Tags sync on the next run when fingerprints exist and only a small
       // number of changed contacts need processing.
       const results = await upsertContacts(contacts, new Set(), isFirstRun);
 
-      const updatedFp: Record<string, string> = { ...savedFp };
+      const updatedFp: Record<string, ContactFpEntry> = { ...savedFp };
       for (const r of results) {
-        if (r.status === "new") {
-          new_added++;
-          // Save fingerprint for newly added contacts
+        if (r.status === "new" || r.status === "updated") {
+          if (r.status === "new") new_added++; else updated++;
           const c = contacts.find((x) => x.email.toLowerCase() === r.email.toLowerCase());
-          if (c) updatedFp[r.email.toLowerCase()] = fullFingerprint(c);
-        } else if (r.status === "updated") {
-          updated++;
-          const c = contacts.find((x) => x.email.toLowerCase() === r.email.toLowerCase());
-          if (c) updatedFp[r.email.toLowerCase()] = fullFingerprint(c);
+          if (c) {
+            const key = stableKey(c);
+            updatedFp[key] = { email: c.email.toLowerCase(), fp: fullFingerprint(c) };
+            // If the email changed, the old stableKey entry (if it was email-based) may
+            // still exist — remove it to avoid stale entries when memberId is blank.
+            if (c.oldEmail && !c.memberId.trim() && updatedFp[c.oldEmail]) {
+              delete updatedFp[c.oldEmail];
+            }
+          }
         } else if (r.status === "error") {
           errors++;
           if (error_details.length < 10) error_details.push(`${r.email}: ${r.error}`);

@@ -97,9 +97,14 @@ export async function upsertContacts(
   const mc = await getMailchimp();
   const results: ContactSyncResult[] = [];
 
-  // Step 1: batch upsert merge fields
-  for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
-    const batch = contacts.slice(i, i + BATCH_SIZE);
+  // Step 1: batch upsert merge fields.
+  // Contacts whose email address changed since last sync must be patched individually —
+  // batchListMembers matches by email so it would create a duplicate instead of updating.
+  const normalContacts   = contacts.filter((c) => !c.oldEmail);
+  const emailChangedContacts = contacts.filter((c) => !!c.oldEmail);
+
+  for (let i = 0; i < normalContacts.length; i += BATCH_SIZE) {
+    const batch = normalContacts.slice(i, i + BATCH_SIZE);
     const members = batch.map((c) => ({
       email_address: c.email,
       status: "subscribed" as const,
@@ -116,6 +121,24 @@ export async function upsertContacts(
       for (const e of res.errors ?? [])          results.push({ email: e.email_address ?? "unknown", status: "error", error: e.error });
     } catch (err) {
       batch.forEach((c) => results.push({ email: c.email, status: "error", error: String(err) }));
+    }
+  }
+
+  // Individual PATCH for contacts whose email changed — use old email hash to locate the
+  // existing Mailchimp record, then update email_address in-place (preserves history).
+  for (const c of emailChangedContacts) {
+    const oldHash = emailMd5(c.oldEmail!);
+    try {
+      const updated = await retryWithBackoff(() =>
+        (mc.lists as any).updateListMember(audienceId, oldHash, {
+          email_address: c.email,
+          status: "subscribed",
+          merge_fields: buildMergeFields(c),
+        })
+      );
+      results.push({ email: updated?.email_address ?? c.email, status: "updated" });
+    } catch (err) {
+      results.push({ email: c.email, status: "error", error: `email-change: ${String(err)}` });
     }
   }
 
@@ -136,9 +159,19 @@ export async function upsertContacts(
 
   const tagErrors: string[] = [];
   await withConcurrency(contactsWithTags, TAG_CONCURRENCY, async (contact) => {
-    const email = contact.email.toLowerCase();
+    const email    = contact.email.toLowerCase();
+    const lookupKey = contact.oldEmail ?? email; // existing fingerprint may be under old email
     const fp = contactFingerprint(contact);
-    if (savedFingerprints[email] === fp) return; // unchanged — skip API call
+
+    if (savedFingerprints[lookupKey] === fp) {
+      // Tag data unchanged — only migrate the fingerprint key if email changed
+      if (contact.oldEmail && contact.oldEmail !== email) {
+        updatedFingerprints[email] = fp;
+        delete updatedFingerprints[contact.oldEmail];
+      }
+      return; // no Mailchimp API call needed
+    }
+
     try {
       const hash = emailMd5(contact.email);
       await retryWithBackoff(() =>
@@ -147,6 +180,9 @@ export async function upsertContacts(
         })
       );
       updatedFingerprints[email] = fp;
+      if (contact.oldEmail && contact.oldEmail !== email) {
+        delete updatedFingerprints[contact.oldEmail];
+      }
     } catch (err) {
       tagErrors.push(`tag:${contact.email}: ${String(err)}`);
     }
