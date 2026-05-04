@@ -116,6 +116,28 @@ export interface CampaignStats {
   };
 }
 
+// ── Content Studio ────────────────────────────────────────────────────────────
+
+export interface StudioEvent {
+  title: string;     // "Racing Day"
+  datetime: string;  // "Saturday 10 May, 10:00am"
+  details: string;   // free-text extra context for the AI
+}
+
+export type ContentObjective = "open_rate" | "click_rate" | "re_engage";
+
+export interface StudioInput {
+  objective: ContentObjective;
+  events: StudioEvent[];
+  additionalNotes: string;
+}
+
+export interface StudioOutput {
+  subject: string;
+  html: string;
+  campaignUrl?: string;
+}
+
 // ── Lifecycle Tracking ─────────────────────────────────────────────────────────
 
 export type LifecycleStage = "new" | "active" | "cold" | "dead";

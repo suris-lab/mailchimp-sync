@@ -14,6 +14,7 @@ import { AudienceStatsPanel } from "@/components/stats/AudienceStatsPanel";
 import { GrowthPanel } from "@/components/growth/GrowthPanel";
 import { CampaignPanel } from "@/components/campaigns/CampaignPanel";
 import { LifecyclePanel } from "@/components/lifecycle/LifecyclePanel";
+import { ContentStudio } from "@/components/studio/ContentStudio";
 import { useSyncStats } from "@/hooks/useSyncStats";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useSyncStats();
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
@@ -178,6 +180,31 @@ export default function DashboardPage() {
             subtitle="Mailchimp email performance · categorised by subject"
           />
           <CampaignPanel />
+        </section>
+
+        {/* ── Content Studio (collapsible) ── */}
+        <section>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2.5">
+              <span className="block h-4 w-0.5 rounded-full bg-hebe-red shrink-0" />
+              <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white uppercase">
+                Content Studio
+              </h2>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5">
+                — AI-powered weekly EDM draft
+              </span>
+            </div>
+            <button
+              onClick={() => setStudioOpen((v) => !v)}
+              className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700
+                         px-2.5 py-1.5 text-[11px] text-gray-400 dark:text-gray-500
+                         hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+            >
+              {studioOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {studioOpen ? "Collapse" : "Expand"}
+            </button>
+          </div>
+          {studioOpen && <ContentStudio />}
         </section>
       </main>
 
