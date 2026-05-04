@@ -122,8 +122,10 @@ export interface StudioEvent {
   title: string;
   datetime: string;
   details: string;
-  ctaUrl: string;    // e.g. "https://hhyc.com/register"
-  ctaLabel: string;  // e.g. "Register Now"
+  eventCategory: string;  // "F&B" | "Sailing Event" | "Club News" | "Marine" | ""
+  eventType: string;      // predefined chip value or custom text
+  ctaUrl: string;
+  ctaLabel: string;
 }
 
 export type ContentObjective = "open_rate" | "click_rate" | "re_engage";
@@ -133,6 +135,8 @@ export interface StudioInput {
   events: StudioEvent[];
   additionalNotes: string;
   subjectOnly?: boolean;
+  ctaLabelOnly?: boolean;     // generate CTA label for a single event
+  ctaLabelEventIndex?: number;
 }
 
 export interface StudioOutput {
