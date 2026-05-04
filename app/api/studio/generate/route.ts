@@ -18,7 +18,7 @@ function pct(n: number, total: number) {
   return total > 0 ? `${((n / total) * 100).toFixed(0)}%` : "0%";
 }
 
-function buildPrompt(input: StudioInput, audience: AudienceStats | null, lifecycle: LifecycleStats | null, campaigns: CampaignStats | null): string {
+function buildContext(input: StudioInput, audience: AudienceStats | null, lifecycle: LifecycleStats | null, campaigns: CampaignStats | null): string {
   const lc = lifecycle?.current;
   const total = lc?.total ?? 0;
 
@@ -35,13 +35,14 @@ function buildPrompt(input: StudioInput, audience: AudienceStats | null, lifecyc
     re_engage:  "Re-engage cold or inactive members — use a warm, inviting tone that reminds them what they're missing at the club",
   };
 
-  const eventsBlock = input.events.map((e, i) =>
-    `Event ${i + 1}: ${e.title}\n  When: ${e.datetime}\n  Details: ${e.details || "(none provided)"}`
-  ).join("\n\n");
+  const eventsBlock = input.events.map((e, i) => {
+    const cta = e.ctaUrl
+      ? `  CTA: "${e.ctaLabel || "Learn More"}" → ${e.ctaUrl}`
+      : "  CTA: (none)";
+    return `Event ${i + 1}: ${e.title}\n  When: ${e.datetime}\n  Details: ${e.details || "(none provided)"}\n${cta}`;
+  }).join("\n\n");
 
-  return `You are an email copywriter for Hebe Haven Yacht Club (HHYC), a prestigious yacht club established in 1963 in Pak Sha Wan, Sai Kung, Hong Kong. You write warm, professional, community-oriented email newsletters.
-
-OBJECTIVE: ${objectiveDesc[input.objective]}
+  return `OBJECTIVE: ${objectiveDesc[input.objective]}
 
 AUDIENCE INSIGHTS (live CRM data):
 - Total contacts: ${total}
@@ -62,7 +63,13 @@ THIS WEEK'S EVENTS:
 ${eventsBlock || "(no events provided)"}
 
 ADDITIONAL NOTES FROM EDITOR:
-${input.additionalNotes || "(none)"}
+${input.additionalNotes || "(none)"}`;
+}
+
+function buildFullPrompt(context: string): string {
+  return `You are an email copywriter for Hebe Haven Yacht Club (HHYC), a prestigious yacht club established in 1963 in Pak Sha Wan, Sai Kung, Hong Kong. You write warm, professional, community-oriented email newsletters.
+
+${context}
 
 Generate a "Weekly What's On" email newsletter. Output ONLY valid JSON in this exact shape:
 {
@@ -77,11 +84,22 @@ HTML requirements:
 - Font: Inter, Helvetica Neue, Arial, sans-serif — 15px base, 24px line height
 - Open with: <p>Dear *|FNAME|*,</p>
 - One clearly styled section per event with: bold heading, date/time line, short description paragraph
-- Closing CTA button (#eb0029 background, white text) appropriate for the objective
+- For each event that has a CTA URL: include a button with background #eb0029, white text, border-radius 6px, padding 10px 20px, using the provided CTA label and URL. Events without a CTA URL should not have a button.
 - Footer: thin top border, small grey text: "Hebe Haven Yacht Club · Est. 1963 · Pak Sha Wan, Sai Kung, Hong Kong"
 - Unsubscribe placeholder: *|UNSUB|*
 - No external images, no JavaScript, no external CSS
 - Mobile-friendly inline styles only`;
+}
+
+function buildSubjectPrompt(context: string): string {
+  return `You are an email copywriter for Hebe Haven Yacht Club (HHYC), established 1963 in Pak Sha Wan, Sai Kung, Hong Kong.
+
+${context}
+
+Generate ONLY a new subject line for the Weekly What's On newsletter. Output ONLY valid JSON:
+{
+  "subject": "subject line, max 60 characters, no emoji"
+}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -91,14 +109,15 @@ export async function POST(req: NextRequest) {
   }
 
   const input: StudioInput = await req.json();
-  if (!input.events?.length && !input.additionalNotes) {
+  const { subjectOnly } = input;
+
+  if (!subjectOnly && !input.events?.length && !input.additionalNotes) {
     return NextResponse.json({ error: "Provide at least one event or additional notes" }, { status: 400 });
   }
 
   const [audience, lifecycle, campaignsRaw] = await Promise.all([
     kvGet<AudienceStats>("sync:audience_stats"),
     kvGet<LifecycleStats>("sync:lifecycle_stats"),
-    // Fetch last 90 days of campaigns from internal API for context
     (async () => {
       const end = new Date().toISOString().slice(0, 10);
       const start = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
@@ -108,7 +127,8 @@ export async function POST(req: NextRequest) {
     })(),
   ]);
 
-  const prompt = buildPrompt(input, audience, lifecycle, campaignsRaw);
+  const context = buildContext(input, audience, lifecycle, campaignsRaw);
+  const prompt = subjectOnly ? buildSubjectPrompt(context) : buildFullPrompt(context);
 
   const openai = new OpenAI({ apiKey });
   const completion = await openai.chat.completions.create({
@@ -118,7 +138,7 @@ export async function POST(req: NextRequest) {
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
-    temperature: 0.7,
+    temperature: subjectOnly ? 0.9 : 0.7,
   });
 
   const raw = completion.choices[0].message.content ?? "{}";
@@ -129,12 +149,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "AI returned invalid JSON", raw }, { status: 500 });
   }
 
-  if (!result.subject || !result.html) {
-    return NextResponse.json({ error: "AI response missing subject or html", raw }, { status: 500 });
+  if (!result.subject) {
+    return NextResponse.json({ error: "AI response missing subject", raw }, { status: 500 });
   }
 
-  // Strip any accidental markdown fences from HTML
-  const html = result.html.replace(/^```html\n?/, "").replace(/\n?```$/, "").trim();
+  if (!subjectOnly) {
+    if (!result.html) {
+      return NextResponse.json({ error: "AI response missing html", raw }, { status: 500 });
+    }
+    const html = result.html.replace(/^```html\n?/, "").replace(/\n?```$/, "").trim();
+    return NextResponse.json({ subject: result.subject, html });
+  }
 
-  return NextResponse.json({ subject: result.subject, html });
+  return NextResponse.json({ subject: result.subject });
 }

@@ -119,9 +119,11 @@ export interface CampaignStats {
 // ── Content Studio ────────────────────────────────────────────────────────────
 
 export interface StudioEvent {
-  title: string;     // "Racing Day"
-  datetime: string;  // "Saturday 10 May, 10:00am"
-  details: string;   // free-text extra context for the AI
+  title: string;
+  datetime: string;
+  details: string;
+  ctaUrl: string;    // e.g. "https://hhyc.com/register"
+  ctaLabel: string;  // e.g. "Register Now"
 }
 
 export type ContentObjective = "open_rate" | "click_rate" | "re_engage";
@@ -130,6 +132,7 @@ export interface StudioInput {
   objective: ContentObjective;
   events: StudioEvent[];
   additionalNotes: string;
+  subjectOnly?: boolean;
 }
 
 export interface StudioOutput {
