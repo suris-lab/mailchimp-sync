@@ -95,44 +95,42 @@ export default function DashboardPage() {
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-8 sm:space-y-10">
 
-        {/* ── Contact Lifecycle + Sync Overview — side by side ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 items-start">
-
-          {/* Contact Lifecycle */}
-          <section>
-            <SectionHeader
-              title="Contact Lifecycle"
-              subtitle="Stage distribution and database health · computed on each sync"
-            />
-            <LifecyclePanel stats={lifecycleStats} isLoading={lifecycleLoading} />
-          </section>
-
-          {/* Sync Overview (collapsible) */}
-          <section>
-            <div className="flex items-center justify-between mb-5">
+        {/* ── Contact Lifecycle + Sync Overview — shared collapsible row ── */}
+        <section>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-4 min-w-0">
               <div className="flex items-center gap-2.5">
+                <span className="block h-4 w-0.5 rounded-full bg-hebe-red shrink-0" />
+                <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white uppercase">
+                  Contact Lifecycle
+                </h2>
+              </div>
+              <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">/</span>
+              <div className="flex items-center gap-2.5 hidden sm:flex">
                 <span className="block h-4 w-0.5 rounded-full bg-hebe-red shrink-0" />
                 <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white uppercase">
                   Sync Overview
                 </h2>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5">
-                  — auto-refreshes every 30s
-                </span>
               </div>
-              <button
-                onClick={() => setOverviewOpen((v) => !v)}
-                className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700
-                           px-2.5 py-1.5 text-[11px] text-gray-400 dark:text-gray-500
-                           hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
-              >
-                {overviewOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                {overviewOpen ? "Collapse" : "Expand"}
-              </button>
             </div>
-            {overviewOpen && <SyncKpiStrip stats={stats} isLoading={statsLoading} />}
-          </section>
+            <button
+              onClick={() => setOverviewOpen((v) => !v)}
+              className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700
+                         px-2.5 py-1.5 text-[11px] text-gray-400 dark:text-gray-500
+                         hover:border-gray-400 dark:hover:border-gray-500 transition-colors shrink-0"
+            >
+              {overviewOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {overviewOpen ? "Collapse" : "Expand"}
+            </button>
+          </div>
 
-        </div>
+          {overviewOpen && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 items-start">
+              <LifecyclePanel stats={lifecycleStats} isLoading={lifecycleLoading} />
+              <SyncKpiStrip stats={stats} isLoading={statsLoading} />
+            </div>
+          )}
+        </section>
 
         {/* ── Contact Growth ── */}
         <section>
