@@ -121,6 +121,21 @@ export interface CampaignStats {
 
 // ── Content Studio ────────────────────────────────────────────────────────────
 
+export interface StudioDraft {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  input: {
+    objective: ContentObjective;
+    events: StudioEvent[];
+    additionalNotes: string;
+  };
+  output?: { subject: string; html: string; campaignUrl?: string };
+  status: "draft" | "trash";
+  deletedAt?: string;
+}
+
 export interface StudioEvent {
   title: string;
   datetime: string;

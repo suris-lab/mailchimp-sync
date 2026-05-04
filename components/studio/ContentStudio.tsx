@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Plus, Trash2, Loader2, ExternalLink, RotateCcw, Sparkles, ChevronRight, ChevronLeft, RefreshCw, Wand2 } from "lucide-react";
-import type { StudioEvent, ContentObjective, StudioOutput } from "@/lib/types";
+import type { StudioEvent, ContentObjective, StudioOutput, StudioDraft } from "@/lib/types";
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CATEGORIES: Record<string, { types: string[] }> = {
@@ -36,12 +36,13 @@ const EMPTY_EVENT: StudioEvent = {
 
 type Stage = "idle" | "generating" | "preview" | "creating" | "done";
 type WizardStep = 1 | 2 | 3;
+type SaveStatus = "idle" | "dirty" | "saving" | "saved";
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 function StepIndicator({ current }: { current: WizardStep }) {
   const steps = ["Objective", "Events", "Notes"];
   return (
-    <div className="flex items-center mb-6">
+    <div className="flex items-center">
       {steps.map((label, i) => {
         const step = (i + 1) as WizardStep;
         const done = current > step;
@@ -151,7 +152,6 @@ function EventCard({
                 {type}
               </button>
             ))}
-            {/* Custom chip */}
             <button
               onClick={selectCustom}
               className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors border ${
@@ -163,7 +163,6 @@ function EventCard({
               Custom
             </button>
           </div>
-          {/* Custom type text input */}
           {showCustomInput && (
             <input
               type="text"
@@ -239,19 +238,87 @@ function EventCard({
   );
 }
 
+// ── Props ─────────────────────────────────────────────────────────────────────
+interface ContentStudioProps {
+  initialDraftId?: string | null;
+  initialInput?: StudioDraft["input"] | null;
+  onSaved?: (draft: StudioDraft) => void;
+  onDiscard?: () => void;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
-export function ContentStudio() {
+export function ContentStudio({
+  initialDraftId = null,
+  initialInput = null,
+  onSaved,
+  onDiscard,
+}: ContentStudioProps) {
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
-  const [objective, setObjective] = useState<ContentObjective>("open_rate");
-  const [events, setEvents]       = useState<StudioEvent[]>([{ ...EMPTY_EVENT }]);
-  const [notes, setNotes]         = useState("");
+  const [objective, setObjective] = useState<ContentObjective>(initialInput?.objective ?? "open_rate");
+  const [events, setEvents]       = useState<StudioEvent[]>(initialInput?.events?.length ? initialInput.events : [{ ...EMPTY_EVENT }]);
+  const [notes, setNotes]         = useState(initialInput?.additionalNotes ?? "");
   const [stage, setStage]         = useState<Stage>("idle");
   const [output, setOutput]       = useState<StudioOutput | null>(null);
   const [editSubject, setEditSubject] = useState("");
   const [error, setError]         = useState<string | null>(null);
   const [regeneratingSubject, setRegeneratingSubject] = useState(false);
   const [generatingCtaFor, setGeneratingCtaFor] = useState<number | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
+  // Stable refs — avoid stale closures inside doSave without re-creating the callback
+  const draftIdRef  = useRef<string | null>(initialDraftId);
+  const inputRef    = useRef({ objective, events, notes, output });
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { inputRef.current = { objective, events, notes, output }; }, [objective, events, notes, output]);
+
+  // ── Auto-save (debounced 2 s) ─────────────────────────────────────────────
+  const doSave = useCallback(async () => {
+    const { objective: obj, events: evs, notes: nts, output: out } = inputRef.current;
+    setSaveStatus("saving");
+    try {
+      const body = {
+        id: draftIdRef.current,
+        input: { objective: obj, events: evs, additionalNotes: nts },
+        ...(out ? { output: { subject: out.subject, html: out.html, campaignUrl: out.campaignUrl } } : {}),
+      };
+      const res = await fetch("/api/studio/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const draft: StudioDraft = await res.json();
+        draftIdRef.current = draft.id;
+        onSaved?.(draft);
+        setSaveStatus("saved");
+      } else {
+        setSaveStatus("dirty");
+      }
+    } catch {
+      setSaveStatus("dirty");
+    }
+  }, [onSaved]);
+
+  // Trigger auto-save whenever form input changes
+  useEffect(() => {
+    const hasContent = events.some((e) => e.title.trim() || e.details.trim()) || notes.trim();
+    if (!hasContent) return;
+
+    setSaveStatus("dirty");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(doSave, 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [objective, events, notes, doSave]);
+
+  // Also save immediately when AI output is generated
+  useEffect(() => {
+    if (!output) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    doSave();
+  }, [output, doSave]);
+
+  // ── Form helpers ──────────────────────────────────────────────────────────
   function addEvent() {
     if (events.length < 6) setEvents(prev => [...prev, { ...EMPTY_EVENT }]);
   }
@@ -271,12 +338,8 @@ export function ContentStudio() {
         body: JSON.stringify({ objective, events, additionalNotes: notes, ctaLabelOnly: true, ctaLabelEventIndex: i }),
       });
       const data = await res.json();
-      if (res.ok && data.ctaLabel) {
-        updateEvent(i, { ...events[i], ctaLabel: data.ctaLabel });
-      }
-    } catch {
-      // silent — user keeps current label
-    } finally {
+      if (res.ok && data.ctaLabel) updateEvent(i, { ...events[i], ctaLabel: data.ctaLabel });
+    } catch { /* silent */ } finally {
       setGeneratingCtaFor(null);
     }
   }
@@ -312,9 +375,7 @@ export function ContentStudio() {
       });
       const data = await res.json();
       if (res.ok && data.subject) setEditSubject(data.subject);
-    } catch {
-      // silent
-    } finally {
+    } catch { /* silent */ } finally {
       setRegeneratingSubject(false);
     }
   }
@@ -348,11 +409,23 @@ export function ContentStudio() {
     setEvents([{ ...EMPTY_EVENT }]);
     setNotes("");
     setObjective("open_rate");
+    setSaveStatus("idle");
+    draftIdRef.current = null;
+    onDiscard?.();
   }
 
   const inputCls = "w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-hebe-red dark:focus:border-hebe-red transition-colors resize-none";
 
-  // ── Done ──────────────────────────────────────────────────────────────────────
+  // ── Save status badge ─────────────────────────────────────────────────────
+  const saveBadge = (
+    <span className="text-[10px] text-gray-400 dark:text-gray-600 shrink-0 ml-auto pl-4">
+      {saveStatus === "dirty"  && "Unsaved…"}
+      {saveStatus === "saving" && <span className="flex items-center gap-1"><Loader2 size={9} className="animate-spin" />Saving…</span>}
+      {saveStatus === "saved"  && "✓ Saved"}
+    </span>
+  );
+
+  // ── Done ──────────────────────────────────────────────────────────────────
   if (stage === "done" && output?.campaignUrl) {
     return (
       <div className="card p-6 text-center space-y-4">
@@ -383,7 +456,7 @@ export function ContentStudio() {
     );
   }
 
-  // ── Preview / Creating ────────────────────────────────────────────────────────
+  // ── Preview / Creating ────────────────────────────────────────────────────
   if ((stage === "preview" || stage === "creating") && output) {
     return (
       <div className="space-y-4">
@@ -452,7 +525,7 @@ export function ContentStudio() {
     );
   }
 
-  // ── Generating ────────────────────────────────────────────────────────────────
+  // ── Generating ────────────────────────────────────────────────────────────
   if (stage === "generating") {
     return (
       <div className="card p-12 flex flex-col items-center gap-3">
@@ -463,10 +536,14 @@ export function ContentStudio() {
     );
   }
 
-  // ── Idle — wizard ─────────────────────────────────────────────────────────────
+  // ── Idle — wizard ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
-      <StepIndicator current={wizardStep} />
+      {/* Step indicator + save status */}
+      <div className="flex items-center mb-6">
+        <StepIndicator current={wizardStep} />
+        {saveBadge}
+      </div>
 
       {/* Step 1 — Objective */}
       {wizardStep === 1 && (
