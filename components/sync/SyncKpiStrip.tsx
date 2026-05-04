@@ -49,7 +49,7 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-24 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 animate-pulse" />
           ))}
@@ -63,7 +63,7 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2">
         <KpiCard
           label="Total Synced"
           value={fmt(stats?.total_ever_synced)}
