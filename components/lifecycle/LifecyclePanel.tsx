@@ -84,19 +84,19 @@ function StageCardGrid({ current }: { current: LifecycleStageCounts }) {
       <KpiCard
         label="Active"
         value={current.active.toLocaleString()}
-        sub={`${pct(current.active, total)} · opened ≤30d`}
+        sub={`${pct(current.active, total)} · record updated`}
         accent="red"
       />
       <KpiCard
         label="Cold"
         value={current.cold.toLocaleString()}
-        sub={`${pct(current.cold, total)} · 30–90d inactive`}
+        sub={`${pct(current.cold, total)} · no changes`}
         accent="brown"
       />
       <KpiCard
         label="Dead"
         value={current.dead.toLocaleString()}
-        sub={`${pct(current.dead, total)} · 90d+ or never`}
+        sub={`${pct(current.dead, total)} · unsubscribed`}
         accent="neutral"
       />
     </div>
