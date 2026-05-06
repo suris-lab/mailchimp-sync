@@ -7,12 +7,15 @@ import { kvGet, kvSet, kvLpush } from "@/lib/kv";
 const KV_STATS = "sync:stats";
 const KV_LOG_IDS = "sync:log_ids";
 const KV_SCHEDULE = "sync:schedule";
-// v2 key — keyed by memberId (fallback: email) storing { email, fp } pairs so email changes
-// can be detected. The old "sync:contact_fingerprints" key (email-keyed strings) is abandoned;
-// the first sync after deploy will do a one-time full re-sync of all contacts.
-const KV_CONTACT_FP = "sync:contact_fingerprints_v2";
+// v3 key — tag arrays now sorted before hashing so fingerprints are stable regardless of
+// the order Google Sheets returns multi-value cells. Bumping the key forces a one-time
+// full re-sync so all stored fingerprints are rebuilt with the correct sorted hash.
+const KV_CONTACT_FP = "sync:contact_fingerprints_v3";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
 const KV_LIFECYCLE_STATS = "sync:lifecycle_stats";
+// Unsubscribed email set cached by computeLifecycleStats — read by runSync to skip
+// unsubscribed contacts without an extra Mailchimp API call per sync.
+const KV_UNSUBSCRIBED = "sync:unsubscribed_emails";
 
 type ContactFpEntry = { email: string; fp: string };
 
@@ -73,28 +76,55 @@ async function computeLifecycleStats(allContacts: SheetContact[]): Promise<void>
   const now = Date.now();
   const DAY_MS = 86_400_000;
 
-  // Fetch unsubscribed emails from Mailchimp — two parallel calls (subscribed default
-  // call doesn't return unsubscribed contacts). HHYC < 500 contacts; add pagination
-  // if count ever exceeds 1000.
+  // Load previous stats first — used as fallback if Mailchimp fetch fails.
+  const prev = await kvGet<LifecycleStats>(KV_LIFECYCLE_STATS);
+
+  // Fetch unsubscribed emails from Mailchimp.
+  // No `fields` filter — the subset filter is unreliable with this SDK version and can
+  // silently return an empty members array. Fetching all fields is safe for < 1 000 contacts.
   const unsubscribedEmails = new Set<string>();
+  let fetchError: string | undefined;
   try {
     const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
     mc.setConfig({ apiKey: process.env.MAILCHIMP_API_KEY!, server: process.env.MAILCHIMP_SERVER_PREFIX! });
     const res = await mc.lists.getListMembersInfo(audienceId, {
-      fields: ["members.email_address"],
       status: "unsubscribed",
       count: 1000,
       offset: 0,
     }) as any;
     for (const m of (res.members ?? []) as any[]) {
-      unsubscribedEmails.add(m.email_address.toLowerCase());
+      if (m.email_address) unsubscribedEmails.add(m.email_address.toLowerCase());
     }
-  } catch { /* fail silently — dead stage falls back to 0 */ }
+  } catch (err) {
+    fetchError = String(err);
+  }
+
+  // Cache the unsubscribed set so runSync can filter without an extra Mailchimp API call.
+  if (!fetchError) {
+    kvSet(KV_UNSUBSCRIBED, [...unsubscribedEmails]).catch(() => {});
+  }
+
+  // If the fetch failed, preserve previous counts — don't misclassify Dead contacts.
+  if (fetchError) {
+    const preserved = prev?.current ?? { new: 0, active: 0, cold: 0, dead: 0, total: allContacts.length };
+    const today = new Date().toISOString().slice(0, 10);
+    const history = (prev?.history ?? []).filter(h => h.date !== today);
+    history.push({ date: today, stages: preserved });
+    if (history.length > 90) history.splice(0, history.length - 90);
+    await kvSet(KV_LIFECYCLE_STATS, {
+      computed_at: new Date().toISOString(),
+      current: preserved,
+      healthScore: prev?.healthScore ?? 0,
+      history,
+      fetchError,
+    } as LifecycleStats);
+    return;
+  }
 
   const counts: LifecycleStageCounts = { new: 0, active: 0, cold: 0, dead: 0, total: allContacts.length };
 
   for (const c of allContacts) {
-    // Dead = unsubscribed in Mailchimp
+    // Dead = unsubscribed in Mailchimp (highest priority)
     if (unsubscribedEmails.has(c.email.toLowerCase())) { counts.dead++; continue; }
 
     // New = created within 7 days (from sheet CreatedAt)
@@ -106,7 +136,6 @@ async function computeLifecycleStats(allContacts: SheetContact[]): Promise<void>
                       (c.updatedAt && c.updatedAt.trim() !== "");
     if (hasUpdate) { counts.active++; continue; }
 
-    // Cold = subscribed but nothing has changed since import
     counts.cold++;
   }
 
@@ -114,9 +143,7 @@ async function computeLifecycleStats(allContacts: SheetContact[]): Promise<void>
     ? Math.round((counts.active * 100 + counts.new * 80 + counts.cold * 30) / counts.total)
     : 0;
 
-  // Upsert today's snapshot — one entry per calendar day, max 90 entries kept
   const today = new Date().toISOString().slice(0, 10);
-  const prev = await kvGet<LifecycleStats>(KV_LIFECYCLE_STATS);
   const history = (prev?.history ?? []).filter(h => h.date !== today);
   history.push({ date: today, stages: counts });
   if (history.length > 90) history.splice(0, history.length - 90);
@@ -126,7 +153,7 @@ async function computeLifecycleStats(allContacts: SheetContact[]): Promise<void>
     current: counts,
     healthScore,
     history,
-  } satisfies LifecycleStats);
+  } as LifecycleStats);
 }
 
 export async function shouldSkipCronSync(): Promise<boolean> {
@@ -142,12 +169,15 @@ export async function shouldSkipCronSync(): Promise<boolean> {
 }
 
 // Hash every meaningful field so any change to any column triggers a resync.
-// Does NOT rely on the UpdatedAt column being maintained in the sheet.
+// Tag arrays are sorted before hashing — Google Sheets can return multi-value cells
+// in different orders between API calls, which would otherwise produce a different
+// fingerprint for the same data and cause a false re-sync every run.
 function fullFingerprint(c: SheetContact): string {
   const raw = [
     c.email, c.fullName, c.memberId, c.membership, c.membershipModifier,
     c.phone, c.note, c.createdAt, c.updatedAt, c.changedId,
-    ...c.interest, ...c.facility, ...c.skill, ...c.administrative,
+    ...[...c.interest].sort(), ...[...c.facility].sort(),
+    ...[...c.skill].sort(),    ...[...c.administrative].sort(),
   ].join("|");
   return createHash("md5").update(raw).digest("hex");
 }
@@ -222,11 +252,16 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     computeAudienceStats(allContacts).catch(() => {}); // fire-and-forget, non-blocking
     computeLifecycleStats(allContacts).catch(() => {});
 
-    // 4. Load saved fingerprints — compare every contact against last known state.
-    //    Keyed by memberId (fallback: email); value is { email, fp } so we can detect
-    //    email address changes and route them to a PATCH call instead of batch upsert.
+    // 4. Load saved fingerprints and the cached unsubscribed email set.
     const savedFp = (await kvGet<Record<string, ContactFpEntry>>(KV_CONTACT_FP)) ?? {};
     const isFirstRun = Object.keys(savedFp).length === 0;
+    const unsubscribedEmails = new Set<string>(
+      (await kvGet<string[]>(KV_UNSUBSCRIBED)) ?? []
+    );
+
+    // updatedFp starts as a copy of savedFp; entries are overwritten as contacts are processed.
+    const updatedFp: Record<string, ContactFpEntry> = { ...savedFp };
+    let fpDirty = false;
 
     const contacts: SheetContact[] = [];
     for (const c of allContacts) {
@@ -234,6 +269,13 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
       const saved = savedFp[key];
       const currentFp = fullFingerprint(c);
       if (!saved || saved.fp !== currentFp) {
+        // Unsubscribed contacts must never be sent to Mailchimp (compliance).
+        // Save their fingerprint so they are not re-detected on the next sync.
+        if (unsubscribedEmails.has(c.email.toLowerCase())) {
+          updatedFp[key] = { email: c.email.toLowerCase(), fp: currentFp };
+          fpDirty = true;
+          continue;
+        }
         if (saved && saved.email !== c.email.toLowerCase()) {
           // Email has changed — attach old email so upsertContacts can PATCH the
           // existing Mailchimp record rather than creating a duplicate contact.
@@ -252,7 +294,6 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
       // number of changed contacts need processing.
       const results = await upsertContacts(contacts, new Set(), isFirstRun);
 
-      const updatedFp: Record<string, ContactFpEntry> = { ...savedFp };
       for (const r of results) {
         if (r.status === "new" || r.status === "updated") {
           if (r.status === "new") new_added++; else updated++;
@@ -265,6 +306,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
             if (c.oldEmail && !c.memberId.trim() && updatedFp[c.oldEmail]) {
               delete updatedFp[c.oldEmail];
             }
+            fpDirty = true;
           }
         } else if (r.status === "error") {
           errors++;
@@ -272,7 +314,9 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
           // Do NOT save fingerprint on error — contact will be retried next sync
         }
       }
+    }
 
+    if (fpDirty) {
       await kvSet(KV_CONTACT_FP, updatedFp);
     }
 

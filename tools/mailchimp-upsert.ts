@@ -107,7 +107,9 @@ export async function upsertContacts(
     const batch = normalContacts.slice(i, i + BATCH_SIZE);
     const members = batch.map((c) => ({
       email_address: c.email,
-      status: "subscribed" as const,
+      // status_if_new only applies to brand-new contacts — existing members keep
+      // whatever status Mailchimp already has. Never force-resubscribe anyone.
+      status_if_new: "subscribed" as const,
       merge_fields: buildMergeFields(c),
     }));
 
@@ -126,19 +128,39 @@ export async function upsertContacts(
 
   // Individual PATCH for contacts whose email changed — use old email hash to locate the
   // existing Mailchimp record, then update email_address in-place (preserves history).
+  // No `status` field: Mailchimp returns 400 if you try to set status on a cleaned or
+  // unsubscribed member. Any PATCH failure falls back to batchListMembers with the new
+  // email so the contact is never silently dropped and the fingerprint is always saved.
+  const retryAsNew: SheetContact[] = [];
+
   for (const c of emailChangedContacts) {
     const oldHash = emailMd5(c.oldEmail!);
     try {
       const updated = await retryWithBackoff(() =>
         (mc.lists as any).updateListMember(audienceId, oldHash, {
           email_address: c.email,
-          status: "subscribed",
           merge_fields: buildMergeFields(c),
         })
-      );
+      ) as any;
       results.push({ email: updated?.email_address ?? c.email, status: "updated" });
+    } catch {
+      retryAsNew.push(c);
+    }
+  }
+
+  if (retryAsNew.length > 0) {
+    const members = retryAsNew.map((c) => ({
+      email_address: c.email,
+      status_if_new: "subscribed" as const,
+      merge_fields: buildMergeFields(c),
+    }));
+    try {
+      const res = await (mc.lists as any).batchListMembers(audienceId, { members, update_existing: true });
+      for (const m of res.new_members ?? [])     results.push({ email: m.email_address, status: "new" });
+      for (const m of res.updated_members ?? []) results.push({ email: m.email_address, status: "updated" });
+      for (const e of res.errors ?? [])          results.push({ email: e.email_address ?? "unknown", status: "error", error: e.error });
     } catch (err) {
-      results.push({ email: c.email, status: "error", error: `email-change: ${String(err)}` });
+      retryAsNew.forEach((c) => results.push({ email: c.email, status: "error", error: String(err) }));
     }
   }
 

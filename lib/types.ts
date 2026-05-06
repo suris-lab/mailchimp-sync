@@ -185,6 +185,7 @@ export interface LifecycleStats {
   current:     LifecycleStageCounts;
   healthScore: number;         // 0–100, pre-computed
   history:     LifecycleHistoryEntry[];  // max 90 entries, chronological
+  fetchError?: string;         // set when Mailchimp unsubscribed fetch failed
 }
 
 // ── User-configured auto-sync schedule ────────────────────────────────────────
