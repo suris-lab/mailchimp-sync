@@ -4,13 +4,13 @@ import { kvGet } from "@/lib/kv";
 import { fetchSheetContacts } from "@/tools/google-sheets";
 import type { SheetContact } from "@/lib/types";
 
-const KV_CONTACT_FP = "sync:contact_fingerprints_v3";
+const KV_CONTACT_FP = "sync:contact_fingerprints_v4";
 const KV_UNSUBSCRIBED = "sync:unsubscribed_emails";
 
 type ContactFpEntry = { email: string; fp: string };
 
-function stableKey(c: { memberId: string; email: string }): string {
-  return c.memberId.trim() || c.email.toLowerCase();
+function stableKey(c: { email: string }): string {
+  return c.email.toLowerCase();
 }
 
 // Must stay byte-for-byte identical to the one in sync-engine.ts

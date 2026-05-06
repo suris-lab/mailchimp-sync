@@ -7,10 +7,10 @@ import { kvGet, kvSet, kvLpush } from "@/lib/kv";
 const KV_STATS = "sync:stats";
 const KV_LOG_IDS = "sync:log_ids";
 const KV_SCHEDULE = "sync:schedule";
-// v3 key — tag arrays now sorted before hashing so fingerprints are stable regardless of
-// the order Google Sheets returns multi-value cells. Bumping the key forces a one-time
-// full re-sync so all stored fingerprints are rebuilt with the correct sorted hash.
-const KV_CONTACT_FP = "sync:contact_fingerprints_v3";
+// v4 key — always index by email (not memberId) to eliminate stableKey collisions when
+// multiple sheet rows share the same memberId (e.g. backup contacts). Bumping the key
+// forces a one-time full re-sync so all fingerprints are rebuilt under the new scheme.
+const KV_CONTACT_FP = "sync:contact_fingerprints_v4";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
 const KV_LIFECYCLE_STATS = "sync:lifecycle_stats";
 // Unsubscribed email set cached by computeLifecycleStats — read by runSync to skip
@@ -19,10 +19,11 @@ const KV_UNSUBSCRIBED = "sync:unsubscribed_emails";
 
 type ContactFpEntry = { email: string; fp: string };
 
-// Stable identity key: memberId when available; fall back to email for contacts without one.
-// If a contact has no memberId and their email changes we cannot detect it — document accordingly.
-function stableKey(c: { memberId: string; email: string }): string {
-  return c.memberId.trim() || c.email.toLowerCase();
+// Always key fingerprints by email. Using memberId caused collisions when two sheet rows
+// share the same memberId (backup contacts) — the slot was shared so one contact was
+// always detected as changed. Email is guaranteed unique per row.
+function stableKey(c: { email: string }): string {
+  return c.email.toLowerCase();
 }
 
 async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> {
@@ -276,13 +277,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
           fpDirty = true;
           continue;
         }
-        if (saved && saved.email !== c.email.toLowerCase()) {
-          // Email has changed — attach old email so upsertContacts can PATCH the
-          // existing Mailchimp record rather than creating a duplicate contact.
-          contacts.push({ ...c, oldEmail: saved.email });
-        } else {
-          contacts.push(c);
-        }
+        contacts.push(c);
       }
     }
     contacts_processed = contacts.length;
@@ -301,11 +296,6 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
           if (c) {
             const key = stableKey(c);
             updatedFp[key] = { email: c.email.toLowerCase(), fp: fullFingerprint(c) };
-            // If the email changed, the old stableKey entry (if it was email-based) may
-            // still exist — remove it to avoid stale entries when memberId is blank.
-            if (c.oldEmail && !c.memberId.trim() && updatedFp[c.oldEmail]) {
-              delete updatedFp[c.oldEmail];
-            }
             fpDirty = true;
           }
         } else if (r.status === "error") {

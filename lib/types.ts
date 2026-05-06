@@ -16,9 +16,6 @@ export interface SheetContact {
   skill: string[];
   administrative: string[];
   rowIndex: number;
-  // Set by sync-engine when the email address changed since last sync.
-  // Not populated by the sheet parser — runtime only.
-  oldEmail?: string;
 }
 
 // Result of syncing a single contact to Mailchimp
