@@ -4,19 +4,23 @@ import { readFileSync } from "fs";
 
 const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
 
-const gitSha = (() => {
+// Patch = total commit count — auto-increments on every push, no manual bump needed.
+// Major.minor still come from package.json for intentional milestone bumps.
+const commitCount = (() => {
   try {
-    return execSync("git rev-parse --short HEAD").toString().trim();
+    return execSync("git rev-list --count HEAD").toString().trim();
   } catch {
-    return "local";
+    return "0";
   }
 })();
+
+const [major, minor] = pkg.version.split(".");
+const appVersion = `${major}.${minor}.${commitCount}`;
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["googleapis"],
   env: {
-    NEXT_PUBLIC_APP_VERSION: pkg.version,
-    NEXT_PUBLIC_GIT_SHA: gitSha,
+    NEXT_PUBLIC_APP_VERSION: appVersion,
   },
 };
 
