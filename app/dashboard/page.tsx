@@ -61,6 +61,9 @@ export default function DashboardPage() {
               </p>
               <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 tracking-wide uppercase">
                 Hebe Haven Yacht Club
+                <span className="ml-2 font-mono normal-case text-gray-300 dark:text-gray-700">
+                  v{process.env.NEXT_PUBLIC_APP_VERSION}
+                </span>
               </p>
             </div>
           </div>
@@ -196,12 +199,9 @@ export default function DashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-gray-200 dark:border-gray-800 py-5 px-4 text-center space-y-1">
+      <footer className="mt-12 border-t border-gray-200 dark:border-gray-800 py-5 px-4 text-center">
         <p className="text-[10px] text-gray-400 dark:text-gray-600 tracking-widest uppercase">
           Hebe Haven Yacht Club · Est. 1963 · Pak Sha Wan, Sai Kung
-        </p>
-        <p className="text-[10px] text-gray-300 dark:text-gray-700 font-mono">
-          v{process.env.NEXT_PUBLIC_APP_VERSION} · {process.env.NEXT_PUBLIC_GIT_SHA}
         </p>
       </footer>
     </div>
