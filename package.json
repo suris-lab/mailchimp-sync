@@ -1,12 +1,14 @@
 {
   "name": "google-mailchimp-sync",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "release:patch": "npm version patch --no-git-tag-version",
+    "release:minor": "npm version minor --no-git-tag-version"
   },
   "dependencies": {
     "@mailchimp/mailchimp_marketing": "^3.0.80",

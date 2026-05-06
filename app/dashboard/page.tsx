@@ -76,7 +76,7 @@ export default function DashboardPage() {
                          transition-colors"
             >
               <Sparkles size={13} />
-              <span className="hidden sm:inline">Content Studio</span>
+              <span>AI Studio</span>
             </Link>
             <Link
               href="/settings"
@@ -86,7 +86,7 @@ export default function DashboardPage() {
                          transition-colors"
             >
               <Settings size={13} />
-              <span className="hidden sm:inline">Settings</span>
+              <span>Settings</span>
             </Link>
             <ManualSyncButton />
           </div>
@@ -196,9 +196,12 @@ export default function DashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-gray-200 dark:border-gray-800 py-5 px-4 text-center">
+      <footer className="mt-12 border-t border-gray-200 dark:border-gray-800 py-5 px-4 text-center space-y-1">
         <p className="text-[10px] text-gray-400 dark:text-gray-600 tracking-widest uppercase">
           Hebe Haven Yacht Club · Est. 1963 · Pak Sha Wan, Sai Kung
+        </p>
+        <p className="text-[10px] text-gray-300 dark:text-gray-700 font-mono">
+          v{process.env.NEXT_PUBLIC_APP_VERSION} · {process.env.NEXT_PUBLIC_GIT_SHA}
         </p>
       </footer>
     </div>
