@@ -14,12 +14,20 @@ export function ManualSyncButton() {
 
     try {
       const res = await fetch("/api/sync", { method: "POST" });
-      const body = await res.json();
 
       if (res.status === 409) {
         setMessage({ text: "Already syncing — try again shortly", ok: false });
         return;
       }
+
+      // Guard against non-JSON responses (timeouts, 502/504 gateway errors)
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        setMessage({ text: `Sync failed (HTTP ${res.status})`, ok: false });
+        return;
+      }
+
+      const body = await res.json();
       if (!res.ok || body.error) {
         setMessage({ text: body.error ?? res.statusText, ok: false });
         return;
