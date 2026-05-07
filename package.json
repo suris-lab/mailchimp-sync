@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@mailchimp/mailchimp_marketing": "^3.0.80",
+    "@supabase/supabase-js": "^2.105.3",
     "@upstash/redis": "^1.37.0",
     "googleapis": "^144.0.0",
     "lucide-react": "^0.511.0",
