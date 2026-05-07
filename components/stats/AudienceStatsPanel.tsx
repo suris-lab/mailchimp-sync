@@ -301,6 +301,7 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
               ))}
             </Pie>
             <Tooltip
+              wrapperStyle={{ zIndex: 50 }}
               content={({ active, payload }) => (
                 <MembershipPieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
               )}
