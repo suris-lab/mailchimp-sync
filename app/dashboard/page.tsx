@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, Sparkles } from "lucide-react";
+import { Settings, Sparkles, Database } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -19,6 +19,7 @@ import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
 import { useGrowthStats } from "@/hooks/useGrowthStats";
 import { useLifecycleStats } from "@/hooks/useLifecycleStats";
+import { useBackupStatus } from "@/hooks/useBackupStatus";
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -55,6 +56,7 @@ export default function DashboardPage() {
   const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
   const { data: growthStats, isLoading: growthLoading } = useGrowthStats();
   const { data: lifecycleStats, isLoading: lifecycleLoading } = useLifecycleStats();
+  const lastBackupAt = useBackupStatus();
 
   return (
     <div className="min-h-full bg-hebe-cream dark:bg-gray-950">
@@ -82,6 +84,12 @@ export default function DashboardPage() {
                 <span className="ml-2 font-mono normal-case text-gray-300 dark:text-gray-700">
                   v{process.env.NEXT_PUBLIC_APP_VERSION}
                 </span>
+                {lastBackupAt && (
+                  <span className="ml-3 normal-case tracking-normal inline-flex items-center gap-1 text-gray-300 dark:text-gray-700">
+                    <Database size={9} />
+                    {timeAgo(lastBackupAt)}
+                  </span>
+                )}
               </p>
             </div>
           </div>
