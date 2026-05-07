@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { kvGet, kvSet, kvDel } from "@/lib/kv";
 import { runSync, shouldSkipCronSync } from "@/tools/sync-engine";
 import type { SyncLog, CronStatus } from "@/lib/types";
+
+function verifyBearer(header: string | null, secret: string): boolean {
+  const provided = Buffer.from(header ?? "");
+  const expected = Buffer.from(`Bearer ${secret}`);
+  return provided.length === expected.length && timingSafeEqual(provided, expected);
+}
 
 export const maxDuration = 60;
 
@@ -22,7 +29,7 @@ export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
     const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
+    if (!verifyBearer(auth, secret)) {
       await setCronStatus({ hit_at: hitAt, result: "auth_failed" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

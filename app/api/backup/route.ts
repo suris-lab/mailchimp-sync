@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
+
+function verifyBearer(header: string | null, secret: string): boolean {
+  const provided = Buffer.from(header ?? "");
+  const expected = Buffer.from(`Bearer ${secret}`);
+  return provided.length === expected.length && timingSafeEqual(provided, expected);
+}
 import { kvGet, kvLrange } from "@/lib/kv";
 import { fetchSheetContacts } from "@/tools/google-sheets";
 import type { SyncLog, SyncStats, AudienceStats, LifecycleStats } from "@/lib/types";
@@ -7,8 +14,8 @@ import type { SyncLog, SyncStats, AudienceStats, LifecycleStats } from "@/lib/ty
 export const maxDuration = 60;
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET ?? "";
+  if (!verifyBearer(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

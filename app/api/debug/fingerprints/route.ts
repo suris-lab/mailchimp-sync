@@ -27,7 +27,13 @@ function fullFingerprint(c: SheetContact): string {
   return createHash("md5").update(fingerprintRaw(c)).digest("hex");
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const secret = process.env.CRON_SECRET ?? "";
+  const auth = req.headers.get("authorization") ?? "";
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   try {
     const [savedFp, allContacts, unsubscribedList] = await Promise.all([
       kvGet<Record<string, ContactFpEntry>>(KV_CONTACT_FP),

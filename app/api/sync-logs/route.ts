@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvLrange } from "@/lib/kv";
 import type { SyncLog, SyncLogsResponse } from "@/lib/types";
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const start = searchParams.get("start");
   const end = searchParams.get("end");
+
+  if (start && !ISO_DATE.test(start)) return NextResponse.json({ error: "Invalid start date" }, { status: 400 });
+  if (end   && !ISO_DATE.test(end))   return NextResponse.json({ error: "Invalid end date"   }, { status: 400 });
 
   const ids = await kvLrange("sync:log_ids", 0, 199); // max 200 most recent
   const logs = await Promise.all(ids.map((id) => kvGet<SyncLog>(`sync:log:${id}`)));

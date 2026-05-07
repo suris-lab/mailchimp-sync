@@ -146,11 +146,19 @@ Suggest a short, compelling CTA button label (2–4 words max) that fits this ev
 Output ONLY valid JSON: { "ctaLabel": "Register Now" }`;
 }
 
+const MAX_EVENTS = 10;
+const MAX_NOTES_LEN = 2_000;
+const MAX_DETAIL_LEN = 1_000;
+const MAX_TITLE_LEN = 200;
+
 async function fetchCampaigns(): Promise<CampaignStats | null> {
   const end = new Date().toISOString().slice(0, 10);
   const start = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const res = await fetch(`${base}/api/campaigns?start=${start}&end=${end}`).catch(() => null);
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 8_000);
+  const res = await fetch(`${base}/api/campaigns?start=${start}&end=${end}`, { signal: controller.signal }).catch(() => null);
+  clearTimeout(t);
   return res?.ok ? (res.json() as Promise<CampaignStats>) : null;
 }
 
@@ -162,6 +170,19 @@ export async function POST(req: NextRequest) {
 
   const input: StudioInput = await req.json();
   const { subjectOnly, ctaLabelOnly, ctaLabelEventIndex = 0 } = input;
+
+  // ── Input validation ────────────────────────────────────────────────────────
+  if (Array.isArray(input.events) && input.events.length > MAX_EVENTS) {
+    return NextResponse.json({ error: "Too many events" }, { status: 400 });
+  }
+  if (input.additionalNotes) input.additionalNotes = input.additionalNotes.slice(0, MAX_NOTES_LEN);
+  if (Array.isArray(input.events)) {
+    input.events = input.events.map((e) => ({
+      ...e,
+      title:   (e.title   ?? "").slice(0, MAX_TITLE_LEN),
+      details: (e.details ?? "").slice(0, MAX_DETAIL_LEN),
+    }));
+  }
 
   const openai = new OpenAI({ apiKey });
 
@@ -214,11 +235,11 @@ export async function POST(req: NextRequest) {
   try {
     result = JSON.parse(raw);
   } catch {
-    return NextResponse.json({ error: "AI returned invalid JSON", raw }, { status: 500 });
+    return NextResponse.json({ error: "Generation failed — please try again" }, { status: 500 });
   }
 
   if (!result.subject) {
-    return NextResponse.json({ error: "AI response missing subject", raw }, { status: 500 });
+    return NextResponse.json({ error: "Generation failed — please try again" }, { status: 500 });
   }
 
   if (subjectOnly) {
@@ -226,7 +247,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!result.html) {
-    return NextResponse.json({ error: "AI response missing html", raw }, { status: 500 });
+    return NextResponse.json({ error: "Generation failed — please try again" }, { status: 500 });
   }
 
   const html = result.html.replace(/^```html\n?/, "").replace(/\n?```$/, "").trim();
