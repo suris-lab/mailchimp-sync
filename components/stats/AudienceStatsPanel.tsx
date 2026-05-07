@@ -34,22 +34,23 @@ const BAR_COLORS = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const RADIAN = Math.PI / 180;
 
-function groupSmallSlices(
-  obj: Record<string, number>,
-  thresholdPct = 3,
-): { name: string; value: number }[] {
+type Slice = { name: string; value: number; others?: { name: string; value: number }[] };
+
+function groupSmallSlices(obj: Record<string, number>, thresholdPct = 3): Slice[] {
   const sorted = Object.entries(obj).sort((a, b) => b[1] - a[1]);
   const total = sorted.reduce((s, [, v]) => s + v, 0);
-  const main: { name: string; value: number }[] = [];
-  let others = 0;
+  const main: Slice[] = [];
+  const small: { name: string; value: number }[] = [];
+  let othersTotal = 0;
   for (const [name, value] of sorted) {
     if (total > 0 && (value / total) * 100 >= thresholdPct) {
       main.push({ name, value });
     } else {
-      others += value;
+      small.push({ name, value });
+      othersTotal += value;
     }
   }
-  if (others > 0) main.push({ name: "Others", value: others });
+  if (othersTotal > 0) main.push({ name: "Others", value: othersTotal, others: small });
   return main;
 }
 
@@ -74,6 +75,49 @@ function PieTooltip({
       <p style={{ color: tc.tooltipTitle }} className="font-semibold break-words">{name}</p>
       <p style={{ color: tc.tooltipMuted }} className="mt-0.5">{value.toLocaleString()} contacts</p>
       <p style={{ color: tc.tooltipAccent }} className="font-semibold mt-0.5">{pct}% of total</p>
+    </div>
+  );
+}
+
+// Membership tooltip — shows "Others" breakdown on hover
+function MembershipPieTooltip({
+  active, payload, totalForPct, tc,
+}: {
+  active?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: readonly any[];
+  totalForPct: number;
+  tc: ReturnType<typeof useThemeColors>;
+}) {
+  if (!active || !payload?.length) return null;
+  const slice = payload[0].payload as Slice;
+  const { name, value, others } = slice;
+  const pct = totalForPct > 0 ? ((value / totalForPct) * 100).toFixed(1) : "–";
+
+  return (
+    <div
+      style={{ background: tc.tooltipBg, border: `1px solid ${tc.tooltipBorder}` }}
+      className="rounded-lg px-3 py-2 text-xs shadow-xl max-w-[240px]"
+    >
+      <p style={{ color: tc.tooltipTitle }} className="font-semibold break-words">{name}</p>
+      <p style={{ color: tc.tooltipMuted }} className="mt-0.5">{value.toLocaleString()} contacts</p>
+      <p style={{ color: tc.tooltipAccent }} className="font-semibold mt-0.5">{pct}% of total</p>
+      {others && others.length > 0 && (
+        <>
+          <div style={{ borderColor: tc.tooltipBorder }} className="my-2 border-t" />
+          <p style={{ color: tc.tooltipMuted, fontSize: 9 }} className="mb-1.5 font-semibold uppercase tracking-wide">
+            Includes
+          </p>
+          {others.map((o) => (
+            <div key={o.name} className="flex items-center justify-between gap-3 mt-0.5">
+              <span style={{ color: tc.tooltipTitle }} className="truncate">{o.name}</span>
+              <span style={{ color: tc.tooltipMuted }} className="shrink-0 tabular-nums">
+                {o.value.toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -258,7 +302,7 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
             </Pie>
             <Tooltip
               content={({ active, payload }) => (
-                <PieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
+                <MembershipPieTooltip active={active} payload={payload} totalForPct={total} tc={tc} />
               )}
             />
             <Legend
