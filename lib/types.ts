@@ -193,3 +193,10 @@ export interface SyncSchedule {
   interval_minutes: ScheduleInterval;
   updated_at: string;
 }
+
+export interface SyncProgress {
+  phase: "fetching" | "comparing" | "syncing";
+  processed: number;
+  total: number;
+  started_at: string;
+}

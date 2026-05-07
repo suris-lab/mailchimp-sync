@@ -27,22 +27,22 @@ function timeAgo(iso: string): string {
 
 const CRON_LABELS: Record<CronStatus["result"], string> = {
   checking:         "Checking…",
-  auth_failed:      "Auth failed — check CRON_SECRET",
-  skipped_schedule: "Skipped (interval not elapsed)",
-  lock_busy:        "Skipped (sync in progress)",
+  auth_failed:      "Auth failed",
+  skipped_schedule: "Skipped (interval)",
+  lock_busy:        "Lock busy",
   started:          "Running",
   completed:        "Completed",
   error:            "Error",
 };
 
-const CRON_COLORS: Record<CronStatus["result"], string> = {
-  checking:         "text-gray-400 dark:text-gray-600",
-  auth_failed:      "text-hebe-red font-semibold",
-  skipped_schedule: "text-gray-400 dark:text-gray-600",
-  lock_busy:        "text-gray-400 dark:text-gray-600",
-  started:          "text-gray-500 dark:text-gray-400",
-  completed:        "text-gray-500 dark:text-gray-400",
-  error:            "text-hebe-red font-semibold",
+const CRON_PILL_STYLES: Record<CronStatus["result"], string> = {
+  checking:         "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600",
+  auth_failed:      "bg-hebe-red/10 text-hebe-red border border-hebe-red/30",
+  skipped_schedule: "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600",
+  lock_busy:        "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600",
+  started:          "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
+  completed:        "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
+  error:            "bg-hebe-red/10 text-hebe-red border border-hebe-red/30",
 };
 
 export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
@@ -92,23 +92,28 @@ export function SyncKpiStrip({ stats, isLoading }: SyncKpiStripProps) {
         />
       </div>
 
-      {/* Cron diagnostics row — shows whether Vercel is hitting /api/sync */}
-      <div className="flex items-center gap-1.5 px-1 text-[10px] text-gray-400 dark:text-gray-600">
-        <span className="uppercase tracking-wider font-semibold">Cron</span>
-        <span>·</span>
-        {cs ? (
-          <>
+      {/* Cron diagnostics — two-line layout for readability */}
+      <div className="flex flex-col gap-1 px-1">
+        <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-600">
+          <span className="text-[10px] uppercase tracking-wider font-semibold">Cron</span>
+          <span>·</span>
+          {cs ? (
             <span>last hit {timeAgo(cs.hit_at)}</span>
-            <span>·</span>
-            <span className={CRON_COLORS[cs.result]}>{CRON_LABELS[cs.result]}</span>
+          ) : (
+            <span>no cron attempts recorded yet</span>
+          )}
+        </div>
+        {cs && (
+          <div className="flex items-center gap-2 pl-0.5">
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${CRON_PILL_STYLES[cs.result]}`}>
+              {CRON_LABELS[cs.result]}
+            </span>
             {cs.error && (
-              <span className="text-hebe-red truncate max-w-[260px]" title={cs.error}>
-                — {cs.error}
+              <span className="text-[10px] text-hebe-red truncate max-w-[260px]" title={cs.error}>
+                {cs.error}
               </span>
             )}
-          </>
-        ) : (
-          <span>no cron attempts recorded yet</span>
+          </div>
         )}
       </div>
     </div>

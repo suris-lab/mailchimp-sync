@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Settings, Sparkles } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -26,10 +26,28 @@ function daysAgo(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
+function healthLabel(score: number): string {
+  if (score >= 80) return "Good";
+  if (score >= 60) return "Fair";
+  if (score >= 40) return "At Risk";
+  return "Critical";
+}
+
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr / 24)}d ago`;
+}
+
 export default function DashboardPage() {
   const [start, setStart] = useState(daysAgo(29));
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
-  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [lifecycleOpen, setLifecycleOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useSyncStats();
@@ -96,43 +114,36 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-8 sm:space-y-10">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
-        {/* ── Contact Lifecycle + Sync Overview — shared collapsible row ── */}
+        {/* ── Contact Lifecycle ── */}
         <section>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="flex items-center gap-2.5">
-                <span className="block h-4 w-0.5 rounded-full bg-hebe-red shrink-0" />
-                <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white uppercase">
-                  Contact Lifecycle
-                </h2>
-              </div>
-              <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">/</span>
-              <div className="flex items-center gap-2.5 hidden sm:flex">
-                <span className="block h-4 w-0.5 rounded-full bg-hebe-red shrink-0" />
-                <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white uppercase">
-                  Sync Overview
-                </h2>
-              </div>
-            </div>
-            <button
-              onClick={() => setOverviewOpen((v) => !v)}
-              className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700
-                         px-2.5 py-1.5 text-[11px] text-gray-400 dark:text-gray-500
-                         hover:border-gray-400 dark:hover:border-gray-500 transition-colors shrink-0"
-            >
-              {overviewOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              {overviewOpen ? "Collapse" : "Expand"}
-            </button>
-          </div>
+          <SectionHeader
+            title="Contact Lifecycle"
+            collapsible={{
+              isOpen: lifecycleOpen,
+              onToggle: () => setLifecycleOpen((v) => !v),
+              summary: lifecycleStats
+                ? `Health Score: ${lifecycleStats.healthScore} · ${healthLabel(lifecycleStats.healthScore)} — ${lifecycleStats.current.total.toLocaleString()} contacts`
+                : undefined,
+            }}
+          />
+          {lifecycleOpen && <LifecyclePanel stats={lifecycleStats} isLoading={lifecycleLoading} />}
+        </section>
 
-          {overviewOpen && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 items-start">
-              <LifecyclePanel stats={lifecycleStats} isLoading={lifecycleLoading} />
-              <SyncKpiStrip stats={stats} isLoading={statsLoading} />
-            </div>
-          )}
+        {/* ── Sync Overview ── */}
+        <section>
+          <SectionHeader
+            title="Sync Overview"
+            collapsible={{
+              isOpen: syncOpen,
+              onToggle: () => setSyncOpen((v) => !v),
+              summary: stats?.last_sync_at
+                ? `Last sync: ${timeAgo(stats.last_sync_at)} · ${stats.last_sync_status} · +${stats.last_new_added ?? 0} new, ${stats.last_updated ?? 0} updated`
+                : stats ? "Never synced" : undefined,
+            }}
+          />
+          {syncOpen && <SyncKpiStrip stats={stats} isLoading={statsLoading} />}
         </section>
 
         {/* ── Contact Growth ── */}
@@ -153,38 +164,28 @@ export default function DashboardPage() {
           <AudienceStatsPanel stats={audienceStats} isLoading={audienceLoading} />
         </section>
 
-        {/* ── Sync History (collapsible) ── */}
+        {/* ── Sync History ── */}
         <section>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="block h-4 w-0.5 rounded-full bg-hebe-red shrink-0" />
-              <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white uppercase">
-                Sync History
-              </h2>
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5 hidden sm:inline">
-                — {logsData?.total ?? 0} run(s) in range
-              </span>
+          <SectionHeader
+            title="Sync History"
+            collapsible={{
+              isOpen: historyOpen,
+              onToggle: () => setHistoryOpen((v) => !v),
+            }}
+          />
+          {historyOpen && (
+            <div className="mb-4 flex justify-end">
+              <DateRangePicker
+                start={start}
+                end={end}
+                onChange={(s, e) => { setStart(s); setEnd(e); }}
+              />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {historyOpen && (
-                <DateRangePicker
-                  start={start}
-                  end={end}
-                  onChange={(s, e) => { setStart(s); setEnd(e); }}
-                />
-              )}
-              <button
-                onClick={() => setHistoryOpen((v) => !v)}
-                className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700
-                           px-2.5 py-1.5 text-[11px] text-gray-400 dark:text-gray-500
-                           hover:border-gray-400 dark:hover:border-gray-500 transition-colors shrink-0"
-              >
-                {historyOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                {historyOpen ? "Collapse" : "Expand"}
-              </button>
-            </div>
-          </div>
-          {historyOpen && <SyncLogTable logs={logsData?.logs ?? []} isLoading={logsLoading} />}
+          )}
+          <SyncLogTable
+            logs={historyOpen ? (logsData?.logs ?? []) : (logsData?.logs ?? []).slice(0, 5)}
+            isLoading={logsLoading}
+          />
         </section>
 
         {/* ── Campaign Analytics ── */}

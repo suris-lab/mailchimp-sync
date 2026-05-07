@@ -38,39 +38,40 @@ function AppsScriptGuide() {
       <div className="flex items-start gap-3">
         <Zap size={14} className="text-hebe-navy dark:text-gray-400 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-gray-300">Google Apps Script required</p>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Google Apps Script required</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             A small script installed on your Google Sheet detects edits and calls this platform instantly (~5 sec delay).
           </p>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="mt-2 flex items-center gap-1 text-xs text-hebe-navy dark:text-gray-400 hover:text-gray-300 transition-colors"
+            className="mt-2 flex items-center gap-1 text-xs text-hebe-navy dark:text-gray-400
+                       hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
           >
             {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             {open ? "Hide setup steps" : "Show setup steps"}
           </button>
 
           {open && (
-            <ol className="mt-3 space-y-2 text-xs text-gray-300 list-decimal list-inside">
+            <ol className="mt-3 space-y-2 text-xs text-gray-700 dark:text-gray-300 list-decimal list-inside">
               <li>Open your Google Sheet → <strong>Extensions → Apps Script</strong></li>
               <li>
                 Paste the script from{" "}
-                <code className="bg-gray-800 px-1 py-0.5 rounded text-gray-200">scripts/apps-script.gs</code>{" "}
+                <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-700 dark:text-gray-200">scripts/apps-script.gs</code>{" "}
                 in this project
               </li>
               <li>
-                Set <code className="bg-gray-800 px-1 py-0.5 rounded text-gray-200">WEBHOOK_URL</code> to:
-                <div className="mt-1 rounded bg-gray-800 px-2 py-1.5 font-mono text-[11px] text-gray-200 break-all">
+                Set <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-700 dark:text-gray-200">WEBHOOK_URL</code> to:
+                <div className="mt-1 rounded bg-gray-100 dark:bg-gray-800 px-2 py-1.5 font-mono text-[11px] text-gray-700 dark:text-gray-200 break-all">
                   {WEBHOOK_URL_PLACEHOLDER}
                 </div>
               </li>
               <li>
-                Set <code className="bg-gray-800 px-1 py-0.5 rounded text-gray-200">WEBHOOK_SECRET</code> to your{" "}
-                <code className="bg-gray-800 px-1 py-0.5 rounded text-gray-200">WEBHOOK_SECRET</code> env var value
+                Set <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-700 dark:text-gray-200">WEBHOOK_SECRET</code> to your{" "}
+                <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-700 dark:text-gray-200">WEBHOOK_SECRET</code> env var value
               </li>
               <li>Save → click the clock icon → <strong>Add Trigger</strong></li>
               <li>
-                Choose <code className="bg-gray-800 px-1 py-0.5 rounded text-gray-200">onSheetEdit</code>,
+                Choose <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-700 dark:text-gray-200">onSheetEdit</code>,
                 event source: <strong>From spreadsheet</strong>, event type: <strong>On edit</strong> → Save
               </li>
               <li>Repeat with event type: <strong>On change</strong> (catches bulk pastes)</li>
@@ -116,10 +117,10 @@ export function SchedulePanel({ lastSyncAt }: SchedulePanelProps) {
   const isDirty = selected !== null && selected !== schedule?.interval_minutes;
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
       <div className="flex items-center gap-2 mb-4">
         <Clock size={14} className="text-gray-400" />
-        <h3 className="text-sm font-medium text-white">Auto-Sync Schedule</h3>
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white">Auto-Sync Schedule</h3>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -131,17 +132,15 @@ export function SchedulePanel({ lastSyncAt }: SchedulePanelProps) {
               key={opt.value}
               onClick={() => setSelected(opt.value)}
               className={`relative rounded-lg border px-3 py-2 text-xs transition-colors ${
-                active && isRealtime
+                active
                   ? "border-hebe-red bg-hebe-red/10 text-hebe-red"
-                  : active
-                  ? "border-hebe-red bg-hebe-red/10 text-hebe-red"
-                  : "border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-600"
+                  : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-600"
               }`}
             >
               {isRealtime && <Zap size={10} className="inline mr-1 mb-0.5" />}
               {opt.label}
               {opt.note && (
-                <span className="ml-1 text-[10px] text-gray-500">({opt.note})</span>
+                <span className="ml-1 text-[10px] text-gray-400 dark:text-gray-500">({opt.note})</span>
               )}
             </button>
           );
@@ -151,12 +150,12 @@ export function SchedulePanel({ lastSyncAt }: SchedulePanelProps) {
       {current === -1 && <AppsScriptGuide />}
 
       <div className="flex items-center justify-between mt-4">
-        <p className="text-xs text-gray-500">
-          <span className="text-gray-300">{nextSyncLabel(current, lastSyncAt)}</span>
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-gray-700 dark:text-gray-300">{nextSyncLabel(current, lastSyncAt)}</span>
         </p>
 
         <div className="flex items-center gap-2">
-          {saved && <span className="text-xs text-gray-400">Saved</span>}
+          {saved && <span className="text-xs text-gray-500 dark:text-gray-400">Saved</span>}
           <button
             onClick={handleSave}
             disabled={saving || !isDirty}

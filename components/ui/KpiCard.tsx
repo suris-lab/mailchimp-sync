@@ -22,10 +22,16 @@ export function KpiCard({ label, value, sub, accent = "neutral", badge, badgeVar
     accent === "brown"  ? "text-hebe-brown dark:text-gray-300" :
                           "text-gray-900 dark:text-white";
 
+  const borderAccent =
+    accent === "red"   ? "border-l-[3px] border-l-hebe-red" :
+    accent === "navy"  ? "border-l-[3px] border-l-hebe-navy" :
+    accent === "brown" ? "border-l-[3px] border-l-hebe-brown" :
+                         "";
+
   const bVariant = badgeVariant ?? (badge as keyof typeof badgeStyles);
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+    <div className={`rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 ${borderAccent}`}>
       <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
         {label}
       </p>

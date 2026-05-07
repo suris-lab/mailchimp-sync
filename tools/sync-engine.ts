@@ -2,7 +2,7 @@ import { randomUUID, createHash } from "crypto";
 import type { SyncLog, SyncStats, SyncSchedule, SheetContact, AudienceStats, LifecycleStats, LifecycleStageCounts } from "@/lib/types";
 import { fetchSheetContacts, getSheetModifiedTime } from "./google-sheets";
 import { upsertContacts } from "./mailchimp-upsert";
-import { kvGet, kvSet, kvLpush } from "@/lib/kv";
+import { kvGet, kvSet, kvDel, kvLpush } from "@/lib/kv";
 
 const KV_STATS = "sync:stats";
 const KV_LOG_IDS = "sync:log_ids";
@@ -12,6 +12,7 @@ const KV_SCHEDULE = "sync:schedule";
 // forces a one-time full re-sync so all fingerprints are rebuilt under the new scheme.
 const KV_CONTACT_FP = "sync:contact_fingerprints_v4";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
+const KV_PROGRESS = "sync:progress";
 const KV_LIFECYCLE_STATS = "sync:lifecycle_stats";
 // Unsubscribed email set cached by computeLifecycleStats — read by runSync to skip
 // unsubscribed contacts without an extra Mailchimp API call per sync.
@@ -246,6 +247,8 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     }
 
     // 2. Fetch all contacts from Google Sheets
+    const syncStartedAt = new Date().toISOString();
+    kvSet(KV_PROGRESS, { phase: "fetching", processed: 0, total: 0, started_at: syncStartedAt }, 300).catch(() => {});
     const allContacts = await fetchSheetContacts();
     total_contacts = allContacts.length;
 
@@ -283,11 +286,14 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     contacts_processed = contacts.length;
 
     if (contacts.length > 0) {
+      kvSet(KV_PROGRESS, { phase: "syncing", processed: 0, total: contacts.length, started_at: syncStartedAt }, 300).catch(() => {});
       // Upsert changed contacts to Mailchimp.
       // On first run (no fingerprints yet) skip tag API calls — merge fields only.
       // Tags sync on the next run when fingerprints exist and only a small
       // number of changed contacts need processing.
-      const results = await upsertContacts(contacts, new Set(), isFirstRun);
+      const results = await upsertContacts(contacts, new Set(), isFirstRun, (processed) => {
+        kvSet(KV_PROGRESS, { phase: "syncing", processed, total: contacts.length, started_at: syncStartedAt }, 300).catch(() => {});
+      });
 
       for (const r of results) {
         if (r.status === "new" || r.status === "updated") {
@@ -357,6 +363,8 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     last_updated: updated,
     last_errors: errors,
   } satisfies SyncStats);
+
+  kvDel(KV_PROGRESS).catch(() => {});
 
   return log;
 }

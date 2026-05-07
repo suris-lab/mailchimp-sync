@@ -91,7 +91,8 @@ async function withConcurrency<T>(
 export async function upsertContacts(
   contacts: SheetContact[],
   _knownEmails: Set<string>,
-  skipTags = false
+  skipTags = false,
+  onProgress?: (processed: number) => void
 ): Promise<ContactSyncResult[]> {
   const audienceId = process.env.MAILCHIMP_AUDIENCE_ID!;
   const mc = await getMailchimp();
@@ -119,6 +120,7 @@ export async function upsertContacts(
     } catch (err) {
       batch.forEach((c) => results.push({ email: c.email, status: "error", error: String(err) }));
     }
+    onProgress?.(Math.min(i + BATCH_SIZE, contacts.length));
   }
 
   // Step 2: apply tags — skipped entirely on first run to keep it within time limits
