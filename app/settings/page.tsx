@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SchedulePanel } from "@/components/sync/SchedulePanel";
+import { ImportPanel } from "@/components/sync/ImportPanel";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { useSyncStats } from "@/hooks/useSyncStats";
 
@@ -41,6 +42,14 @@ export default function SettingsPage() {
             subtitle="Auto-sync runs via Vercel cron — manual and webhook syncs always run immediately"
           />
           <SchedulePanel lastSyncAt={stats?.last_sync_at} />
+        </section>
+
+        <section>
+          <SectionHeader
+            title="Contact Import"
+            subtitle="Pull contacts from WPForms, event sheets, or any external Google Sheet"
+          />
+          <ImportPanel />
         </section>
 
         <section>

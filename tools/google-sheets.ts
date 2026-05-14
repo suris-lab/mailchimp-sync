@@ -52,6 +52,90 @@ export async function getSheetModifiedTime(): Promise<string | null> {
   }
 }
 
+// Returns the header row of the main sheet (used by the import tool).
+export async function getMainSheetHeaders(): Promise<string[]> {
+  const sheetId = process.env.SHEET_ID;
+  if (!sheetId) throw new Error("Missing SHEET_ID env var");
+  const tabName = (process.env.SHEET_RANGE ?? "Sheet1!A:Z").split("!")[0];
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${tabName}!1:1`,
+  });
+  return (res.data.values?.[0] ?? []).map((h: unknown) => String(h).trim());
+}
+
+// Read any Google Sheet by ID + range, extracting email + optional name/phone.
+// Columns are identified by header name (case-insensitive).
+export async function readSourceSheet(
+  sheetId: string,
+  range: string,
+  emailCol: string,
+  nameCol?: string,
+  phoneCol?: string,
+): Promise<{ email: string; name?: string; phone?: string }[]> {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range });
+  const rows = res.data.values;
+  if (!rows || rows.length < 2) return [];
+
+  const headers = rows[0].map((h: unknown) => String(h).trim().toLowerCase());
+  const idx = (col: string) => headers.indexOf(col.toLowerCase());
+  const emailIdx = idx(emailCol);
+  if (emailIdx < 0) throw new Error(`Column "${emailCol}" not found in source sheet`);
+  const nameIdx  = nameCol  ? idx(nameCol)  : -1;
+  const phoneIdx = phoneCol ? idx(phoneCol) : -1;
+
+  const contacts: { email: string; name?: string; phone?: string }[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row: string[] = rows[i];
+    const email = String(row[emailIdx] ?? "").trim();
+    if (!email) continue;
+    contacts.push({
+      email,
+      name:  nameIdx  >= 0 ? String(row[nameIdx]  ?? "").trim() : undefined,
+      phone: phoneIdx >= 0 ? String(row[phoneIdx] ?? "").trim() : undefined,
+    });
+  }
+  return contacts;
+}
+
+// Batch-update specific cells in one Sheets API call.
+// Ranges must be in A1 notation e.g. "Sheet1!G5"
+export async function batchUpdateCells(
+  updates: { range: string; value: string }[],
+): Promise<void> {
+  const sheetId = process.env.SHEET_ID;
+  if (!sheetId) throw new Error("Missing SHEET_ID env var");
+  const auth = getAuth(["https://www.googleapis.com/auth/spreadsheets"]);
+  const sheets = google.sheets({ version: "v4", auth });
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      valueInputOption: "RAW",
+      data: updates.map(u => ({ range: u.range, values: [[u.value]] })),
+    },
+  });
+}
+
+// Append rows below the last row of data in the main sheet.
+export async function appendRows(rows: string[][]): Promise<void> {
+  const sheetId = process.env.SHEET_ID;
+  const range = process.env.SHEET_RANGE ?? "Sheet1!A:Z";
+  if (!sheetId) throw new Error("Missing SHEET_ID env var");
+  const auth = getAuth(["https://www.googleapis.com/auth/spreadsheets"]);
+  const sheets = google.sheets({ version: "v4", auth });
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range,
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: rows },
+  });
+}
+
 export async function fetchSheetContacts(): Promise<SheetContact[]> {
   const sheetId = process.env.SHEET_ID;
   const range = process.env.SHEET_RANGE ?? "Sheet1!A:Z";

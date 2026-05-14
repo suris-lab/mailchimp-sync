@@ -1,3 +1,20 @@
+// Contact import from an external Google Sheet
+export interface ImportParams {
+  sourceSheetId: string;
+  sourceRange: string;   // e.g. "Form Responses 1!A:Z"
+  emailColumn: string;   // column header in source sheet that holds email
+  nameColumn?: string;   // optional — maps to FullName
+  phoneColumn?: string;  // optional — maps to Phone
+  interestTag: string;   // tag appended/added to Interest column
+}
+
+export interface ImportResult {
+  tagged: number;    // existing contacts who got the tag added
+  inserted: number;  // new rows appended to main sheet
+  skipped: number;   // rows missing email or already had the tag
+  errors: string[];
+}
+
 // Raw row parsed from Google Sheet
 export interface SheetContact {
   email: string;
