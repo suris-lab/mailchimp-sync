@@ -1,11 +1,12 @@
 // Contact import from an external Google Sheet
 export interface ImportParams {
   sourceSheetId: string;
-  sourceRange: string;   // e.g. "Form Responses 1!A:Z"
-  emailColumn: string;   // column header in source sheet that holds email
-  nameColumn?: string;   // optional — maps to FullName
-  phoneColumn?: string;  // optional — maps to Phone
-  interestTag: string;   // tag appended/added to Interest column
+  sourceRange: string;          // e.g. "Form Responses 1!A:Z"
+  emailColumn: string;          // column header in source sheet that holds email
+  nameColumn?: string;          // optional — maps to FullName
+  phoneColumn?: string;         // optional — maps to Phone
+  interestTag: string;          // tag appended/added to Interest column
+  administrativeTags?: string[]; // optional — appended to Administrative column
 }
 
 export interface ImportResult {

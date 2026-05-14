@@ -10,6 +10,27 @@ type State =
   | { status: "success"; result: ImportResult }
   | { status: "error"; message: string };
 
+const ADMIN_OPTIONS = [
+  "Committee_Sailing",
+  "General_Committee_2026",
+  "Committee_FandB",
+  "Committee_Racing",
+  "Committee_24",
+  "Committee_Training",
+  "Committee_Finance",
+  "Committee_HR",
+  "VIP",
+  "Sponsor",
+  "Unsubscribed",
+  "Action_RenewalDue",
+  "2backup_contact",
+  "3backup_contact",
+  "3shared_contact",
+  "Cleaned",
+  "Test",
+  "Reciprocal_Club",
+];
+
 const INTEREST_OPTIONS = [
   "Interest_Sailing_Dinghy",
   "Interest_Sailing_Keelboat",
@@ -206,6 +227,20 @@ export function ImportPanel() {
   const [customTag, setCustomTag]         = useState("");
   const interestTag = tagSelection === "Other" ? customTag.trim() : tagSelection;
 
+  const [adminTags, setAdminTags]           = useState<string[]>([]);
+  const [customAdminInput, setCustomAdminInput] = useState("");
+
+  function toggleAdmin(tag: string) {
+    setAdminTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  }
+  function addCustomAdmin() {
+    const val = customAdminInput.trim();
+    if (val && !adminTags.includes(val)) {
+      setAdminTags(prev => [...prev, val]);
+      setCustomAdminInput("");
+    }
+  }
+
   const [history, setHistory]           = useState<ImportLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [actionLoading, setActionLoading]   = useState<string | null>(null);
@@ -246,6 +281,7 @@ export function ImportPanel() {
       nameColumn:    nameColumn.trim()  || undefined,
       phoneColumn:   phoneColumn.trim() || undefined,
       interestTag,
+      administrativeTags: adminTags.length > 0 ? adminTags : undefined,
     };
 
     try {
@@ -395,6 +431,71 @@ export function ImportPanel() {
                 onChange={setPhoneColumn}
                 placeholder="Phone"
               />
+
+              {/* Administrative tags — multi-select chips */}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Administrative Tags{" "}
+                  <span className="text-gray-400 font-normal">(optional — appended to Administrative column)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {ADMIN_OPTIONS.map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => toggleAdmin(opt)}
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium border transition-colors ${
+                        adminTags.includes(opt)
+                          ? "bg-hebe-red text-white border-hebe-red"
+                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-hebe-red hover:text-hebe-red"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                {/* Custom tag input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customAdminInput}
+                    onChange={e => setCustomAdminInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomAdmin(); } }}
+                    placeholder="Add custom administrative tag…"
+                    className={inputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomAdmin}
+                    disabled={!customAdminInput.trim()}
+                    className="rounded-lg px-3 py-2 text-xs border border-gray-200 dark:border-gray-700
+                               text-gray-600 dark:text-gray-300 hover:border-hebe-red hover:text-hebe-red
+                               disabled:opacity-40 transition-colors shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
+                {/* Show selected custom tags (not in the preset list) */}
+                {adminTags.filter(t => !ADMIN_OPTIONS.includes(t)).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {adminTags.filter(t => !ADMIN_OPTIONS.includes(t)).map(tag => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium bg-hebe-red text-white"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setAdminTags(prev => prev.filter(t => t !== tag))}
+                          className="hover:opacity-70 leading-none"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-3 pt-1">

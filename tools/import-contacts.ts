@@ -25,11 +25,11 @@ function a1Tab(tabName: string): string {
 }
 
 // Build a full row array for insertion into the main sheet, matching its column order.
-// Only sets Email1, FullName, Phone, Interest, and CreatedAt — all others left blank.
 function buildNewRow(
   src: { email: string; name?: string; phone?: string },
   interestTag: string,
   headers: string[],
+  administrativeTags?: string[],
 ): string[] {
   const row = new Array(headers.length).fill("");
   const set = (colName: string, value: string) => {
@@ -41,6 +41,7 @@ function buildNewRow(
   if (src.phone) set("Phone", src.phone);
   set("Membership", "Non_Member");
   set("Interest", interestTag);
+  if (administrativeTags?.length) set("Administrative", administrativeTags.join(", "));
   // Store CreatedAt in the same DD/MM/YYYY format the sheet uses
   set("CreatedAt", new Date().toLocaleDateString("en-GB"));
   return row;
@@ -62,13 +63,15 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
   if (interestColIdx < 0) throw new Error(`"Interest" column not found in main sheet headers`);
   const interestColLetter = colIndexToLetter(interestColIdx);
 
-  // Build index: lowercase email → { sheetRow (1-based), interests[] }
-  // rowIndex from fetchSheetContacts is the array index (starting at 1 for first data row),
-  // so the actual Google Sheets row number is rowIndex + 1.
+  const adminColIdx = headers.indexOf("Administrative");
+  const adminColLetter = adminColIdx >= 0 ? colIndexToLetter(adminColIdx) : null;
+
+  // Build index: lowercase email → { sheetRow (1-based), interests[], administrative[] }
   const emailIndex = new Map(
     main.map(c => [c.email.toLowerCase(), {
-      sheetRow: c.rowIndex + 1,
-      interests: c.interest,
+      sheetRow:      c.rowIndex + 1,
+      interests:     c.interest,
+      administrative: c.administrative,
     }])
   );
 
@@ -94,16 +97,31 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
     const existing = emailIndex.get(key);
 
     if (existing) {
-      // Already has the tag — skip to keep operation idempotent
-      if (existing.interests.includes(params.interestTag)) { skipped++; continue; }
-      const updated = [...existing.interests, params.interestTag].join(", ");
-      cellUpdates.push({
-        range: `${tab}!${interestColLetter}${existing.sheetRow}`,
-        value: updated,
-      });
+      const needsInterest = !existing.interests.includes(params.interestTag);
+      const adminTagsToAdd = (params.administrativeTags ?? []).filter(
+        t => !existing.administrative.includes(t)
+      );
+
+      // Nothing new to write — skip (keeps operation idempotent)
+      if (!needsInterest && adminTagsToAdd.length === 0) { skipped++; continue; }
+
+      if (needsInterest) {
+        cellUpdates.push({
+          range: `${tab}!${interestColLetter}${existing.sheetRow}`,
+          value: [...existing.interests, params.interestTag].join(", "),
+        });
+      }
+
+      if (adminTagsToAdd.length > 0 && adminColLetter) {
+        cellUpdates.push({
+          range: `${tab}!${adminColLetter}${existing.sheetRow}`,
+          value: [...existing.administrative, ...adminTagsToAdd].join(", "),
+        });
+      }
+
       taggedEmails.push(src.email);
     } else {
-      newRows.push(buildNewRow(src, params.interestTag, headers));
+      newRows.push(buildNewRow(src, params.interestTag, headers, params.administrativeTags));
       insertedEmails.push(src.email);
     }
   }
@@ -125,17 +143,17 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
   const rowFailed  = errors.some(e => e.startsWith("Row"));
 
   return {
-    tagged:        tagFailed ? 0 : cellUpdates.length,
-    inserted:      rowFailed  ? 0 : newRows.length,
+    tagged:         tagFailed ? 0 : taggedEmails.length,
+    inserted:       rowFailed  ? 0 : newRows.length,
     skipped,
     errors,
-    taggedEmails:  tagFailed ? [] : taggedEmails,
+    taggedEmails:   tagFailed ? [] : taggedEmails,
     insertedEmails: rowFailed  ? [] : insertedEmails,
   };
 }
 
-// Reverse a previous import: remove the interest tag from tagged contacts
-// and delete rows for inserted contacts.
+// Reverse a previous import: remove the interest tag (and any admin tags) from tagged
+// contacts, and delete rows for inserted contacts.
 export async function undoImport(
   params: ImportParams,
   taggedEmails: string[],
@@ -148,25 +166,39 @@ export async function undoImport(
 
   const tabName = (process.env.SHEET_RANGE ?? "Sheet1!A:Z").split("!")[0];
   const tab = a1Tab(tabName);
+
   const interestColIdx = headers.indexOf("Interest");
   if (interestColIdx < 0) throw new Error('"Interest" column not found in main sheet');
   const interestColLetter = colIndexToLetter(interestColIdx);
 
+  const adminColIdx = headers.indexOf("Administrative");
+  const adminColLetter = adminColIdx >= 0 ? colIndexToLetter(adminColIdx) : null;
+
   const emailMap = new Map(main.map(c => [c.email.toLowerCase(), c]));
 
-  // Remove tag from previously tagged contacts
   const cellUpdates: { range: string; value: string }[] = [];
+
   for (const email of taggedEmails) {
     const contact = emailMap.get(email.toLowerCase());
     if (!contact) continue;
-    const updated = contact.interest
-      .filter(t => t !== params.interestTag)
-      .join(", ");
+
+    // Remove interest tag
     cellUpdates.push({
       range: `${tab}!${interestColLetter}${contact.rowIndex + 1}`,
-      value: updated,
+      value: contact.interest.filter(t => t !== params.interestTag).join(", "),
     });
+
+    // Remove admin tags that were applied by this import
+    if (params.administrativeTags?.length && adminColLetter) {
+      cellUpdates.push({
+        range: `${tab}!${adminColLetter}${contact.rowIndex + 1}`,
+        value: contact.administrative
+          .filter(t => !params.administrativeTags!.includes(t))
+          .join(", "),
+      });
+    }
   }
+
   if (cellUpdates.length > 0) await batchUpdateCells(cellUpdates);
 
   // Delete inserted rows
