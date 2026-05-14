@@ -39,6 +39,7 @@ function buildNewRow(
   set("Email1", src.email);
   if (src.name)  set("FullName", src.name);
   if (src.phone) set("Phone", src.phone);
+  set("Membership", "Non_Member");
   set("Interest", interestTag);
   // Store CreatedAt in the same DD/MM/YYYY format the sheet uses
   set("CreatedAt", new Date().toLocaleDateString("en-GB"));
