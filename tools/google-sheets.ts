@@ -120,6 +120,52 @@ export async function batchUpdateCells(
   });
 }
 
+// Delete rows from the main sheet whose Email1 matches any of the given emails.
+// Reads the sheet first to find current row positions (safe even if rows shifted since import).
+export async function deleteRowsByEmail(emails: string[]): Promise<void> {
+  const spreadsheetId = process.env.SHEET_ID;
+  const range = process.env.SHEET_RANGE ?? "Sheet1!A:Z";
+  const tabName = range.split("!")[0];
+  if (!spreadsheetId) throw new Error("Missing SHEET_ID env var");
+
+  const auth = getAuth(["https://www.googleapis.com/auth/spreadsheets"]);
+  const sheets = google.sheets({ version: "v4", auth });
+
+  // Resolve the numeric tab sheetId needed by deleteDimension
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const tabMeta = meta.data.sheets?.find(s => s.properties?.title === tabName);
+  if (!tabMeta) throw new Error(`Tab "${tabName}" not found in spreadsheet`);
+  const tabSheetId = tabMeta.properties!.sheetId!;
+
+  // Read current values to find row indices by email
+  const valRes = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+  const rows = valRes.data.values;
+  if (!rows || rows.length < 2) return;
+
+  const headers = rows[0].map((h: unknown) => String(h).trim());
+  const emailIdx = headers.indexOf(COL.EMAIL);
+  if (emailIdx < 0) throw new Error('"Email1" column not found');
+
+  const emailSet = new Set(emails.map(e => e.toLowerCase()));
+  // rows[i] = 0-based array index i → sheet row i+1 (1-based) → delete startIndex = i
+  const toDelete: number[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const email = String(rows[i][emailIdx] ?? "").trim().toLowerCase();
+    if (emailSet.has(email)) toDelete.push(i);
+  }
+
+  if (toDelete.length === 0) return;
+
+  // Delete bottom-to-top so earlier indices don't shift during the operation
+  const requests = toDelete.sort((a, b) => b - a).map(idx => ({
+    deleteDimension: {
+      range: { sheetId: tabSheetId, dimension: "ROWS", startIndex: idx, endIndex: idx + 1 },
+    },
+  }));
+
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
+}
+
 // Append rows below the last row of data in the main sheet.
 export async function appendRows(rows: string[][]): Promise<void> {
   const sheetId = process.env.SHEET_ID;

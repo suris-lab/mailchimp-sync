@@ -4,6 +4,7 @@ import {
   readSourceSheet,
   batchUpdateCells,
   appendRows,
+  deleteRowsByEmail,
 } from "./google-sheets";
 import type { ImportParams, ImportResult } from "@/lib/types";
 
@@ -82,6 +83,8 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
   // 3. Classify each source row
   const cellUpdates: { range: string; value: string }[] = [];
   const newRows: string[][] = [];
+  const taggedEmails: string[] = [];
+  const insertedEmails: string[] = [];
   let skipped = 0;
 
   for (const src of sources) {
@@ -97,8 +100,10 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
         range: `${tab}!${interestColLetter}${existing.sheetRow}`,
         value: updated,
       });
+      taggedEmails.push(src.email);
     } else {
       newRows.push(buildNewRow(src, params.interestTag, headers));
+      insertedEmails.push(src.email);
     }
   }
 
@@ -115,10 +120,54 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
     errors.push(`Row insert failed: ${String(err)}`);
   }
 
+  const tagFailed = errors.some(e => e.startsWith("Tag"));
+  const rowFailed  = errors.some(e => e.startsWith("Row"));
+
   return {
-    tagged:   errors.some(e => e.startsWith("Tag")) ? 0 : cellUpdates.length,
-    inserted: errors.some(e => e.startsWith("Row")) ? 0 : newRows.length,
+    tagged:        tagFailed ? 0 : cellUpdates.length,
+    inserted:      rowFailed  ? 0 : newRows.length,
     skipped,
     errors,
+    taggedEmails:  tagFailed ? [] : taggedEmails,
+    insertedEmails: rowFailed  ? [] : insertedEmails,
   };
+}
+
+// Reverse a previous import: remove the interest tag from tagged contacts
+// and delete rows for inserted contacts.
+export async function undoImport(
+  params: ImportParams,
+  taggedEmails: string[],
+  insertedEmails: string[],
+): Promise<void> {
+  const [main, headers] = await Promise.all([
+    fetchSheetContacts(),
+    getMainSheetHeaders(),
+  ]);
+
+  const tabName = (process.env.SHEET_RANGE ?? "Sheet1!A:Z").split("!")[0];
+  const tab = a1Tab(tabName);
+  const interestColIdx = headers.indexOf("Interest");
+  if (interestColIdx < 0) throw new Error('"Interest" column not found in main sheet');
+  const interestColLetter = colIndexToLetter(interestColIdx);
+
+  const emailMap = new Map(main.map(c => [c.email.toLowerCase(), c]));
+
+  // Remove tag from previously tagged contacts
+  const cellUpdates: { range: string; value: string }[] = [];
+  for (const email of taggedEmails) {
+    const contact = emailMap.get(email.toLowerCase());
+    if (!contact) continue;
+    const updated = contact.interest
+      .filter(t => t !== params.interestTag)
+      .join(", ");
+    cellUpdates.push({
+      range: `${tab}!${interestColLetter}${contact.rowIndex + 1}`,
+      value: updated,
+    });
+  }
+  if (cellUpdates.length > 0) await batchUpdateCells(cellUpdates);
+
+  // Delete inserted rows
+  if (insertedEmails.length > 0) await deleteRowsByEmail(insertedEmails);
 }

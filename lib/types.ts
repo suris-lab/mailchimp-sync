@@ -9,10 +9,26 @@ export interface ImportParams {
 }
 
 export interface ImportResult {
-  tagged: number;    // existing contacts who got the tag added
-  inserted: number;  // new rows appended to main sheet
-  skipped: number;   // rows missing email or already had the tag
+  tagged: number;
+  inserted: number;
+  skipped: number;
   errors: string[];
+  taggedEmails: string[];   // emails that had the tag appended (for undo)
+  insertedEmails: string[]; // emails inserted as new rows (for undo)
+}
+
+export interface ImportLog {
+  id: string;
+  timestamp: string;      // ISO8601
+  params: ImportParams;
+  tagged: number;
+  inserted: number;
+  skipped: number;
+  errors: string[];
+  taggedEmails: string[];
+  insertedEmails: string[];
+  remark: string;
+  undone: boolean;
 }
 
 // Raw row parsed from Google Sheet
