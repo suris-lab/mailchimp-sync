@@ -51,19 +51,24 @@ async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> 
   }
 
   let total_mailchimp_members = 0;
+  let total_unsubscribed = 0;
   try {
     const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
     mc.setConfig({
       apiKey: process.env.MAILCHIMP_API_KEY!,
       server: process.env.MAILCHIMP_SERVER_PREFIX!,
     });
-    const list = await mc.lists.getList(process.env.MAILCHIMP_AUDIENCE_ID!, { fields: ["stats.member_count"] });
+    const list = await mc.lists.getList(process.env.MAILCHIMP_AUDIENCE_ID!, {
+      fields: ["stats.member_count", "stats.unsubscribe_count"],
+    });
     total_mailchimp_members = list?.stats?.member_count ?? 0;
+    total_unsubscribed = list?.stats?.unsubscribe_count ?? 0;
   } catch { /* fail silently — sheet stats still show */ }
 
   const stats: AudienceStats = {
     computed_at: new Date().toISOString(),
     total_mailchimp_members,
+    total_unsubscribed,
     total_sheet_contacts: allContacts.length,
     membership,
     membership_modifier,

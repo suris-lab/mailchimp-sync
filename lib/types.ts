@@ -67,7 +67,8 @@ export interface SyncLogsResponse {
 // Aggregated audience statistics computed from the sheet on each sync
 export interface AudienceStats {
   computed_at: string;
-  total_mailchimp_members: number;  // live from Mailchimp API
+  total_mailchimp_members: number;  // subscribed only
+  total_unsubscribed: number;       // unsubscribed count from Mailchimp
   total_sheet_contacts: number;     // sheet row count
   membership: Record<string, number>;
   membership_modifier: Record<string, number>;

@@ -463,6 +463,11 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 hidden sm:block">
               Subscribed members
             </p>
+            {(stats.total_unsubscribed ?? 0) > 0 && (
+              <span className="mt-1.5 inline-block rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                +{stats.total_unsubscribed.toLocaleString()} unsubscribed
+              </span>
+            )}
           </div>
         </div>
         <div className="card p-4 flex items-start gap-3">
