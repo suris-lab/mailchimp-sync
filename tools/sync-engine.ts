@@ -191,7 +191,7 @@ function fullFingerprint(c: SheetContact): string {
   return createHash("md5").update(raw).digest("hex");
 }
 
-export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<SyncLog> {
+export async function runSync(triggeredBy: SyncLog["triggered_by"], force = false): Promise<SyncLog> {
   const start = Date.now();
   const id = randomUUID();
 
@@ -209,7 +209,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
     const sheetModifiedAt = await getSheetModifiedTime();
     const lastSheetModifiedAt = await kvGet<string>(KV_SHEET_MODIFIED);
 
-    if (sheetModifiedAt && sheetModifiedAt === lastSheetModifiedAt) {
+    if (!force && sheetModifiedAt && sheetModifiedAt === lastSheetModifiedAt) {
       const log: SyncLog = {
         id,
         timestamp: new Date().toISOString(),

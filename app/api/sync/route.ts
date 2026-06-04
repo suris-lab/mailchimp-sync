@@ -80,7 +80,10 @@ export async function POST(req: NextRequest) {
   await kvSet(KV_LOCK, true, LOCK_TTL_SECONDS);
 
   try {
-    const log = await runSync(triggeredBy);
+    // Manual and webhook syncs always run regardless of the sheet's modified timestamp.
+    // Only cron syncs skip when the sheet is unchanged.
+    const force = triggeredBy !== "cron";
+    const log = await runSync(triggeredBy, force);
     return NextResponse.json({ accepted: true, log });
   } catch (err) {
     return NextResponse.json({ accepted: true, error: String(err) }, { status: 500 });
