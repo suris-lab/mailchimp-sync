@@ -8,10 +8,9 @@ import { kvGet, kvSet, kvDel, kvLpush } from "@/lib/kv";
 const KV_STATS = "sync:stats";
 const KV_LOG_IDS = "sync:log_ids";
 const KV_SCHEDULE = "sync:schedule";
-// v4 key — always index by email (not memberId) to eliminate stableKey collisions when
-// multiple sheet rows share the same memberId (e.g. backup contacts). Bumping the key
-// forces a one-time full re-sync so all fingerprints are rebuilt under the new scheme.
-const KV_CONTACT_FP = "sync:contact_fingerprints_v4";
+// v5 key — bumped to force a one-time full re-sync after birthday merge tag names were
+// corrected (MMERGE11–15 instead of BDAY/18BDAY). Previous fingerprints used wrong tags.
+const KV_CONTACT_FP = "sync:contact_fingerprints_v5";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
 const KV_PROGRESS = "sync:progress";
 const KV_LIFECYCLE_STATS = "sync:lifecycle_stats";

@@ -31,6 +31,16 @@ async function getMailchimp() {
   return mc;
 }
 
+// Mailchimp date fields require exactly MM/DD/YYYY (zero-padded).
+// Sheets may return M/D/YYYY (no leading zeros) — normalise before sending.
+function toMailchimpDate(raw: string): string {
+  if (!raw) return "";
+  const parts = raw.split("/");
+  if (parts.length !== 3) return raw;
+  const [m, d, y] = parts;
+  return `${m.padStart(2, "0")}/${d.padStart(2, "0")}/${y}`;
+}
+
 function buildMergeFields(contact: SheetContact): Record<string, string> {
   const { firstName, lastName } = splitName(contact.fullName);
   const fields: Record<string, string> = {
@@ -46,13 +56,12 @@ function buildMergeFields(contact: SheetContact): Record<string, string> {
     [FIELD_MAP.UPDATEDAT]: contact.updatedAt,
     [FIELD_MAP.CHANGEDID]: contact.changedId,
   };
-  // Birthday fields — only include when the sheet cell is non-empty so we
-  // don't overwrite an existing Mailchimp value with a blank string.
-  if (contact.bday)   fields[FIELD_MAP.BDAY]   = contact.bday;
-  if (contact.bday18) fields[FIELD_MAP.BDAY18] = contact.bday18;
-  if (contact.bday21) fields[FIELD_MAP.BDAY21] = contact.bday21;
-  if (contact.bday25) fields[FIELD_MAP.BDAY25] = contact.bday25;
-  if (contact.bday30) fields[FIELD_MAP.BDAY30] = contact.bday30;
+  // Birthday fields — only include when non-empty; normalise to MM/DD/YYYY for Mailchimp.
+  if (contact.bday)   fields[FIELD_MAP.BDAY]   = toMailchimpDate(contact.bday);
+  if (contact.bday18) fields[FIELD_MAP.BDAY18] = toMailchimpDate(contact.bday18);
+  if (contact.bday21) fields[FIELD_MAP.BDAY21] = toMailchimpDate(contact.bday21);
+  if (contact.bday25) fields[FIELD_MAP.BDAY25] = toMailchimpDate(contact.bday25);
+  if (contact.bday30) fields[FIELD_MAP.BDAY30] = toMailchimpDate(contact.bday30);
   return fields;
 }
 
