@@ -31,7 +31,6 @@ export default function SettingsPage() {
               <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Sync schedule & configuration</p>
             </div>
           </div>
-          <ThemeToggle />
         </div>
       </header>
 
@@ -50,6 +49,22 @@ export default function SettingsPage() {
             subtitle="Pull contacts from WPForms, event sheets, or any external Google Sheet"
           />
           <ImportPanel />
+        </section>
+
+        <section>
+          <SectionHeader
+            title="Appearance"
+            subtitle="Display preferences"
+          />
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-700 dark:text-gray-300">Dark Mode</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Toggle between light and dark theme</p>
+              </div>
+              <ThemeToggle />
+            </div>
+          </div>
         </section>
 
         <section>

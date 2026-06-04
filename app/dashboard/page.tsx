@@ -3,35 +3,21 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, Sparkles, Database } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Settings, Sparkles, Database, BarChart2 } from "lucide-react";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { SyncKpiStrip } from "@/components/sync/SyncKpiStrip";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
 import { ManualSyncButton } from "@/components/sync/ManualSyncButton";
 import { AudienceStatsPanel } from "@/components/stats/AudienceStatsPanel";
-import { GrowthPanel } from "@/components/growth/GrowthPanel";
 import { CampaignPanel } from "@/components/campaigns/CampaignPanel";
-import { LifecyclePanel } from "@/components/lifecycle/LifecyclePanel";
-import { useSyncStats } from "@/hooks/useSyncStats";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
-import { useGrowthStats } from "@/hooks/useGrowthStats";
-import { useLifecycleStats } from "@/hooks/useLifecycleStats";
 import { useBackupStatus } from "@/hooks/useBackupStatus";
 
 function daysAgo(n: number) {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d.toISOString().slice(0, 10);
-}
-
-function healthLabel(score: number): string {
-  if (score >= 80) return "Good";
-  if (score >= 60) return "Fair";
-  if (score >= 40) return "At Risk";
-  return "Critical";
 }
 
 function timeAgo(iso: string): string {
@@ -47,15 +33,10 @@ function timeAgo(iso: string): string {
 export default function DashboardPage() {
   const [start, setStart] = useState(daysAgo(29));
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
-  const [lifecycleOpen, setLifecycleOpen] = useState(false);
-  const [syncOpen, setSyncOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  const { data: stats, isLoading: statsLoading } = useSyncStats();
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
   const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
-  const { data: growthStats, isLoading: growthLoading } = useGrowthStats();
-  const { data: lifecycleStats, isLoading: lifecycleLoading } = useLifecycleStats();
   const lastBackupAt = useBackupStatus();
 
   return (
@@ -96,7 +77,16 @@ export default function DashboardPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            <ThemeToggle />
+            <Link
+              href="/analysis"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
+                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
+                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
+                         transition-colors"
+            >
+              <BarChart2 size={13} />
+              <span>Analysis</span>
+            </Link>
             <Link
               href="/studio"
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
@@ -123,45 +113,6 @@ export default function DashboardPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
-
-        {/* ── Contact Lifecycle ── */}
-        <section>
-          <SectionHeader
-            title="Contact Lifecycle"
-            collapsible={{
-              isOpen: lifecycleOpen,
-              onToggle: () => setLifecycleOpen((v) => !v),
-              summary: lifecycleStats
-                ? `Health Score: ${lifecycleStats.healthScore} · ${healthLabel(lifecycleStats.healthScore)} — ${lifecycleStats.current.total.toLocaleString()} contacts`
-                : undefined,
-            }}
-          />
-          {lifecycleOpen && <LifecyclePanel stats={lifecycleStats} isLoading={lifecycleLoading} />}
-        </section>
-
-        {/* ── Sync Overview ── */}
-        <section>
-          <SectionHeader
-            title="Sync Overview"
-            collapsible={{
-              isOpen: syncOpen,
-              onToggle: () => setSyncOpen((v) => !v),
-              summary: stats?.last_sync_at
-                ? `Last sync: ${timeAgo(stats.last_sync_at)} · ${stats.last_sync_status} · +${stats.last_new_added ?? 0} new, ${stats.last_updated ?? 0} updated`
-                : stats ? "Never synced" : undefined,
-            }}
-          />
-          {syncOpen && <SyncKpiStrip stats={stats} isLoading={statsLoading} />}
-        </section>
-
-        {/* ── Contact Growth ── */}
-        <section>
-          <SectionHeader
-            title="Contact Growth"
-            subtitle="New contacts added via sync — sourced from sync run logs"
-          />
-          <GrowthPanel stats={growthStats} isLoading={growthLoading} />
-        </section>
 
         {/* ── Audience Insights ── */}
         <section>
