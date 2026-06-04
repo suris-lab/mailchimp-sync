@@ -76,6 +76,54 @@ async function checkMailchimp() {
   }
 }
 
+async function checkMergeFields() {
+  try {
+    const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
+    mc.setConfig({
+      apiKey: process.env.MAILCHIMP_API_KEY!,
+      server: process.env.MAILCHIMP_SERVER_PREFIX!,
+    });
+    const res = await mc.lists.getListMergeFields(process.env.MAILCHIMP_AUDIENCE_ID!, { count: 50 });
+    const fields = (res.merge_fields ?? []).map((f: any) => ({
+      tag: f.tag,
+      name: f.name,
+      type: f.type,
+      required: f.required,
+    }));
+    const bdayTags = ["BDAY", "18BDAY", "21BDAY", "25BDAY", "30BDAY"];
+    const found = bdayTags.map(t => ({
+      tag: t,
+      configured: fields.find((f: any) => f.tag === t) ?? null,
+    }));
+    return { ok: true, all_fields: fields, bday_check: found };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+async function checkSheetBdayData() {
+  try {
+    const { fetchSheetContacts } = await import("@/tools/google-sheets");
+    const contacts = await fetchSheetContacts();
+    const withBday = contacts.filter(c => c.bday || c.bday18 || c.bday21 || c.bday25 || c.bday30).slice(0, 3);
+    return {
+      ok: true,
+      total_contacts: contacts.length,
+      contacts_with_bday: contacts.filter(c => c.bday || c.bday18 || c.bday21 || c.bday25 || c.bday30).length,
+      sample: withBday.map(c => ({
+        email: c.email,
+        bday: c.bday,
+        bday18: c.bday18,
+        bday21: c.bday21,
+        bday25: c.bday25,
+        bday30: c.bday30,
+      })),
+    };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET ?? "";
   const auth = req.headers.get("authorization") ?? "";
@@ -83,19 +131,23 @@ export async function GET(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const [envVars, kv, sheets, mailchimp] = await Promise.allSettled([
+  const [envVars, kv, sheets, mailchimp, mergeFields, bdayData] = await Promise.allSettled([
     checkEnvVars(),
     checkKv(),
     checkGoogleSheets(),
     checkMailchimp(),
+    checkMergeFields(),
+    checkSheetBdayData(),
   ]);
 
   const result = {
     timestamp: new Date().toISOString(),
-    env_vars:   envVars.status   === "fulfilled" ? envVars.value   : { ok: false, error: String(envVars.reason) },
-    kv:         kv.status        === "fulfilled" ? kv.value        : { ok: false, error: String(kv.reason) },
-    google_sheets: sheets.status === "fulfilled" ? sheets.value    : { ok: false, error: String(sheets.reason) },
-    mailchimp:  mailchimp.status === "fulfilled" ? mailchimp.value : { ok: false, error: String(mailchimp.reason) },
+    env_vars:     envVars.status     === "fulfilled" ? envVars.value     : { ok: false, error: String(envVars.reason) },
+    kv:           kv.status          === "fulfilled" ? kv.value          : { ok: false, error: String(kv.reason) },
+    google_sheets: sheets.status     === "fulfilled" ? sheets.value      : { ok: false, error: String(sheets.reason) },
+    mailchimp:    mailchimp.status   === "fulfilled" ? mailchimp.value   : { ok: false, error: String(mailchimp.reason) },
+    merge_fields: mergeFields.status === "fulfilled" ? mergeFields.value : { ok: false, error: String(mergeFields.reason) },
+    bday_sheet:   bdayData.status    === "fulfilled" ? bdayData.value    : { ok: false, error: String(bdayData.reason) },
   };
 
   const allOk = [result.env_vars, result.kv, result.google_sheets, result.mailchimp].every((r) => r.ok);
