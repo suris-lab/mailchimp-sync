@@ -62,6 +62,10 @@ function buildMergeFields(contact: SheetContact): Record<string, string> {
   if (contact.bday21) fields[FIELD_MAP.BDAY21] = toMailchimpDate(contact.bday21);
   if (contact.bday25) fields[FIELD_MAP.BDAY25] = toMailchimpDate(contact.bday25);
   if (contact.bday30) fields[FIELD_MAP.BDAY30] = toMailchimpDate(contact.bday30);
+  if (contact.saJoinDate) fields[FIELD_MAP.SA_JOINDATE] = toMailchimpDate(contact.saJoinDate);
+  if (contact.saGradDate) fields[FIELD_MAP.SA_GRADDATE] = toMailchimpDate(contact.saGradDate);
+  if (contact.tJoinDate)  fields[FIELD_MAP.T_JOINDATE]  = toMailchimpDate(contact.tJoinDate);
+  if (contact.tGradDate)  fields[FIELD_MAP.T_GRADDATE]  = toMailchimpDate(contact.tGradDate);
   return fields;
 }
 

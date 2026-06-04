@@ -184,6 +184,7 @@ function fullFingerprint(c: SheetContact): string {
     c.email, c.fullName, c.memberId, c.membership, c.membershipModifier,
     c.phone, c.note, c.createdAt, c.updatedAt, c.changedId,
     c.bday, c.bday18, c.bday21, c.bday25, c.bday30,
+    c.saJoinDate, c.saGradDate, c.tJoinDate, c.tGradDate,
     ...[...c.interest].sort(), ...[...c.facility].sort(),
     ...[...c.skill].sort(),    ...[...c.administrative].sort(),
   ].join("|");

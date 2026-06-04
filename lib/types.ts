@@ -81,6 +81,11 @@ export interface SheetContact {
   bday21: string;
   bday25: string;
   bday30: string;
+  // Sailing Academy and Training date columns
+  saJoinDate: string;
+  saGradDate: string;
+  tJoinDate: string;
+  tGradDate: string;
   rowIndex: number;
 }
 

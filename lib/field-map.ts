@@ -22,6 +22,12 @@ export const FIELD_MAP = {
   BDAY21: process.env.MC_TAG_BDAY21 ?? "21BDAY",
   BDAY25: process.env.MC_TAG_BDAY25 ?? "25BDAY",
   BDAY30: process.env.MC_TAG_BDAY30 ?? "30BDAY",
+
+  // Sailing Academy and Training date merge tags
+  SA_JOINDATE: process.env.MC_TAG_SA_JOINDATE ?? "SA_JOINDATE",
+  SA_GRADDATE: process.env.MC_TAG_SA_GRADDATE ?? "SA_GRADDATE",
+  T_JOINDATE:  process.env.MC_TAG_T_JOINDATE  ?? "T_JOINDATE",
+  T_GRADDATE:  process.env.MC_TAG_T_GRADDATE  ?? "T_GRADDATE",
 } as const;
 
 // Tag columns: these become Mailchimp tags prefixed with the column name

@@ -24,6 +24,11 @@ const COL = {
   BDAY21: "21BDAY",
   BDAY25: "25BDAY",
   BDAY30: "30BDAY",
+  // Sailing Academy and Training date columns
+  SA_JOINDATE: "SA_JOINDATE",
+  SA_GRADDATE: "SA_GRADDATE",
+  T_JOINDATE:  "T_JOINDATE",
+  T_GRADDATE:  "T_GRADDATE",
 } as const;
 
 function getAuth(scopes: string[] = ["https://www.googleapis.com/auth/spreadsheets.readonly"]) {
@@ -248,6 +253,10 @@ export async function fetchSheetContacts(): Promise<SheetContact[]> {
       bday21: cell(row, COL.BDAY21),
       bday25: cell(row, COL.BDAY25),
       bday30: cell(row, COL.BDAY30),
+      saJoinDate: cell(row, COL.SA_JOINDATE),
+      saGradDate: cell(row, COL.SA_GRADDATE),
+      tJoinDate:  cell(row, COL.T_JOINDATE),
+      tGradDate:  cell(row, COL.T_GRADDATE),
       rowIndex: i,
     });
   }
