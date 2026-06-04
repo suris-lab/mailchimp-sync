@@ -15,6 +15,13 @@ export const FIELD_MAP = {
   CREATEDAT: "CREATEDAT",
   UPDATEDAT: "UPDATEDAT",
   CHANGEDID: "CHANGEDID",
+
+  // Birthday milestone merge tags — names match the sheet column headers exactly
+  BDAY:   process.env.MC_TAG_BDAY   ?? "BDAY",
+  BDAY18: process.env.MC_TAG_BDAY18 ?? "18BDAY",
+  BDAY21: process.env.MC_TAG_BDAY21 ?? "21BDAY",
+  BDAY25: process.env.MC_TAG_BDAY25 ?? "25BDAY",
+  BDAY30: process.env.MC_TAG_BDAY30 ?? "30BDAY",
 } as const;
 
 // Tag columns: these become Mailchimp tags prefixed with the column name

@@ -1,3 +1,28 @@
+// ── Email validation ──────────────────────────────────────────────────────────
+
+export type EmailIssueType =
+  | "auto_fixed_whitespace"   // leading/trailing/internal spaces were stripped
+  | "auto_fixed_case"         // address was lowercased
+  | "invalid_syntax"          // doesn't pass structural regex — row is skipped
+  | "domain_typo"             // domain looks like a misspelling of a known domain
+  | "duplicate";              // same cleaned address appears more than once in the batch
+
+export interface EmailValidationResult {
+  original: string;           // raw value straight from the source sheet
+  clean: string;              // normalised value (trimmed + lowercased)
+  issues: EmailIssueType[];
+  suggestion?: string;        // corrected email when domain_typo is detected
+  valid: boolean;             // false = row is skipped; true = import proceeds with clean
+}
+
+export interface ImportValidationSummary {
+  autoFixed: number;          // rows where whitespace / casing was silently corrected
+  invalid: number;            // rows skipped due to bad syntax
+  domainTypos: number;        // rows flagged for likely domain typo (still imported)
+  duplicates: number;         // rows skipped because the cleaned email appeared earlier
+  details: EmailValidationResult[];  // only rows that had at least one issue
+}
+
 // Contact import from an external Google Sheet
 export interface ImportParams {
   sourceSheetId: string;
@@ -14,8 +39,9 @@ export interface ImportResult {
   inserted: number;
   skipped: number;
   errors: string[];
-  taggedEmails: string[];   // emails that had the tag appended (for undo)
-  insertedEmails: string[]; // emails inserted as new rows (for undo)
+  taggedEmails: string[];              // emails that had the tag appended (for undo)
+  insertedEmails: string[];            // emails inserted as new rows (for undo)
+  validation?: ImportValidationSummary; // email hygiene report; present on fresh imports
 }
 
 export interface ImportLog {
@@ -49,6 +75,12 @@ export interface SheetContact {
   facility: string[];
   skill: string[];
   administrative: string[];
+  // Birthday milestone columns (optional — sent as merge fields, not tags)
+  bday: string;
+  bday18: string;
+  bday21: string;
+  bday25: string;
+  bday30: string;
   rowIndex: number;
 }
 

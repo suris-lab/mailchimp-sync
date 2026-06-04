@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Upload, ChevronDown, ChevronUp, CheckCircle, AlertCircle, RotateCcw, Undo2 } from "lucide-react";
-import type { ImportParams, ImportResult, ImportLog } from "@/lib/types";
+import { Upload, ChevronDown, ChevronUp, CheckCircle, AlertCircle, RotateCcw, Undo2, Wrench, TriangleAlert, X } from "lucide-react";
+import type { ImportParams, ImportResult, ImportLog, ImportValidationSummary } from "@/lib/types";
 
 type State =
   | { status: "idle" }
@@ -209,6 +209,102 @@ function HistoryRow({
 
       {log.errors.length > 0 && (
         <p className="mt-1 text-red-500 text-[10px] pl-[96px]">{log.errors.join(" · ")}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Email validation report ───────────────────────────────────────────────────
+
+function ValidationReport({ v }: { v: ImportValidationSummary }) {
+  const [open, setOpen] = useState(false);
+  const hasIssues = v.autoFixed > 0 || v.invalid > 0 || v.domainTypos > 0 || v.duplicates > 0;
+  if (!hasIssues) return null;
+
+  return (
+    <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs">
+      {/* Summary row */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+        <span className="font-medium text-gray-600 dark:text-gray-300 shrink-0">Email hygiene:</span>
+
+        {v.autoFixed > 0 && (
+          <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+            <Wrench size={10} />
+            {v.autoFixed} auto-fixed
+          </span>
+        )}
+        {v.domainTypos > 0 && (
+          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+            <TriangleAlert size={10} />
+            {v.domainTypos} domain typo{v.domainTypos > 1 ? "s" : ""}
+          </span>
+        )}
+        {v.duplicates > 0 && (
+          <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+            <X size={10} />
+            {v.duplicates} duplicate{v.duplicates > 1 ? "s" : ""} skipped
+          </span>
+        )}
+        {v.invalid > 0 && (
+          <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+            <X size={10} />
+            {v.invalid} invalid skipped
+          </span>
+        )}
+
+        {v.details.length > 0 && (
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors shrink-0"
+          >
+            {open ? "Hide details ▲" : "Show details ▼"}
+          </button>
+        )}
+      </div>
+
+      {/* Detail rows */}
+      {open && v.details.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
+          {v.details.map((d, i) => (
+            <div key={i} className="px-3 py-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              {/* Original */}
+              <span className="font-mono text-[10px] text-gray-500 dark:text-gray-400 line-through">
+                {d.original}
+              </span>
+
+              {/* Arrow + clean (only if it differs) */}
+              {d.clean !== d.original && (
+                <>
+                  <span className="text-gray-300 dark:text-gray-600">→</span>
+                  <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400">{d.clean}</span>
+                </>
+              )}
+
+              {/* Suggestion for domain typos */}
+              {d.suggestion && (
+                <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                  did you mean <span className="font-mono">{d.suggestion}</span>?
+                </span>
+              )}
+
+              {/* Issue badges */}
+              <div className="flex gap-1 ml-auto">
+                {d.issues.includes("invalid_syntax") && (
+                  <span className="rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 text-[9px] font-medium">invalid</span>
+                )}
+                {d.issues.includes("duplicate") && (
+                  <span className="rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 text-[9px] font-medium">duplicate</span>
+                )}
+                {d.issues.includes("domain_typo") && (
+                  <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 text-[9px] font-medium">typo?</span>
+                )}
+                {(d.issues.includes("auto_fixed_whitespace") || d.issues.includes("auto_fixed_case")) && (
+                  <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 text-[9px] font-medium">fixed</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -531,6 +627,10 @@ export function ImportPanel() {
               <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-xs text-red-700 dark:text-red-300 space-y-1">
                 {state.result.errors.map((e, i) => <p key={i}>{e}</p>)}
               </div>
+            )}
+
+            {state.status === "success" && state.result.validation && (
+              <ValidationReport v={state.result.validation} />
             )}
 
             <p className="text-[10px] text-gray-400 dark:text-gray-500">

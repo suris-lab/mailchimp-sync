@@ -6,6 +6,7 @@ import {
   appendRows,
   deleteRowsByEmail,
 } from "./google-sheets";
+import { validateEmailBatch } from "./validate-emails";
 import type { ImportParams, ImportResult } from "@/lib/types";
 
 // Convert a 0-based column index to a spreadsheet column letter (0→A, 25→Z, 26→AA …)
@@ -84,7 +85,12 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
     params.phoneColumn,
   );
 
-  // 3. Classify each source row
+  // 3. Validate + normalise every email from the source sheet
+  const { results: validationMap, summary: validation } = validateEmailBatch(
+    sources.map(s => s.email),
+  );
+
+  // 4. Classify each source row
   const cellUpdates: { range: string; value: string }[] = [];
   const newRows: string[][] = [];
   const taggedEmails: string[] = [];
@@ -93,6 +99,13 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
 
   for (const src of sources) {
     if (!src.email) { skipped++; continue; }
+
+    const vr = validationMap.get(src.email);
+    if (!vr || !vr.valid) { skipped++; continue; } // invalid syntax or duplicate
+
+    // Use the cleaned (trimmed + lowercased) address for all downstream work
+    src.email = vr.clean;
+
     const key = src.email.toLowerCase();
     const existing = emailIndex.get(key);
 
@@ -149,6 +162,7 @@ export async function importFromSheet(params: ImportParams): Promise<ImportResul
     errors,
     taggedEmails:   tagFailed ? [] : taggedEmails,
     insertedEmails: rowFailed  ? [] : insertedEmails,
+    validation,
   };
 }
 

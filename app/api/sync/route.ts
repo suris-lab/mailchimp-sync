@@ -10,7 +10,7 @@ function verifyBearer(header: string | null, secret: string): boolean {
   return provided.length === expected.length && timingSafeEqual(provided, expected);
 }
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const KV_LOCK = "sync:lock";
 const KV_CRON_STATUS = "sync:cron_status";

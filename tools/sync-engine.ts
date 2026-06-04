@@ -2,6 +2,7 @@ import { randomUUID, createHash } from "crypto";
 import type { SyncLog, SyncStats, SyncSchedule, SheetContact, AudienceStats, LifecycleStats, LifecycleStageCounts } from "@/lib/types";
 import { fetchSheetContacts, getSheetModifiedTime } from "./google-sheets";
 import { upsertContacts } from "./mailchimp-upsert";
+import { validateEmail } from "./validate-emails";
 import { kvGet, kvSet, kvDel, kvLpush } from "@/lib/kv";
 
 const KV_STATS = "sync:stats";
@@ -183,6 +184,7 @@ function fullFingerprint(c: SheetContact): string {
   const raw = [
     c.email, c.fullName, c.memberId, c.membership, c.membershipModifier,
     c.phone, c.note, c.createdAt, c.updatedAt, c.changedId,
+    c.bday, c.bday18, c.bday21, c.bday25, c.bday30,
     ...[...c.interest].sort(), ...[...c.facility].sort(),
     ...[...c.skill].sort(),    ...[...c.administrative].sort(),
   ].join("|");
@@ -285,6 +287,24 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"]): Promise<Syn
           fpDirty = true;
           continue;
         }
+
+        // Email hygiene guard — skip contacts whose email is invalid or a known
+        // domain typo (e.g. @gmai.com). Log them clearly so the user can fix the
+        // source data, but do NOT let them reach Mailchimp and cause API errors.
+        const emailCheck = validateEmail(c.email);
+        if (!emailCheck.valid) {
+          const reason = emailCheck.issues.includes("domain_typo")
+            ? `email domain typo — did you mean ${emailCheck.suggestion ?? "?"}`
+            : "invalid email syntax";
+          errors++;
+          if (error_details.length < 10)
+            error_details.push(`skipped:${c.email}: ${reason}`);
+          // Save fingerprint so we don't keep re-reporting it every sync cycle
+          updatedFp[key] = { email: c.email.toLowerCase(), fp: currentFp };
+          fpDirty = true;
+          continue;
+        }
+
         contacts.push(c);
       }
     }

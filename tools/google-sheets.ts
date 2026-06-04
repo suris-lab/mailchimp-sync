@@ -18,6 +18,12 @@ const COL = {
   CHANGED_ID: "ChangedId",
   NOTE: "Note",
   PHONE: "Phone",
+  // Birthday milestone columns — optional, sent to Mailchimp as merge fields
+  BDAY:   "BDAY",
+  BDAY18: "18BDAY",
+  BDAY21: "21BDAY",
+  BDAY25: "25BDAY",
+  BDAY30: "30BDAY",
 } as const;
 
 function getAuth(scopes: string[] = ["https://www.googleapis.com/auth/spreadsheets.readonly"]) {
@@ -232,6 +238,11 @@ export async function fetchSheetContacts(): Promise<SheetContact[]> {
       facility: splitCellValues(cell(row, COL.FACILITY)),
       skill: splitCellValues(cell(row, COL.SKILL)),
       administrative: splitCellValues(cell(row, COL.ADMINISTRATIVE)),
+      bday:   cell(row, COL.BDAY),
+      bday18: cell(row, COL.BDAY18),
+      bday21: cell(row, COL.BDAY21),
+      bday25: cell(row, COL.BDAY25),
+      bday30: cell(row, COL.BDAY30),
       rowIndex: i,
     });
   }

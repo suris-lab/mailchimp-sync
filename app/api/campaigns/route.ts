@@ -4,8 +4,13 @@ import type { CampaignRecord, CampaignStats, CampaignCategory } from "@/lib/type
 function categorize(subject: string): CampaignCategory {
   const s = subject.toLowerCase();
   if (s.includes("what's on") || s.includes("whats on")) return "Weekly What's On";
-  if (s.includes("member notice") || s.includes("member update") || s.includes("member alert"))
-    return "Member Notice";
+  if (
+    s.includes("member notice") ||
+    s.includes("member update") ||
+    s.includes("member alert") ||
+    s.includes("reminder") ||
+    subject.includes("提示")      // Chinese "reminder/notice" — check original (not lowercased)
+  ) return "Member Notice";
   return "Standalone EDM";
 }
 

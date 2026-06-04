@@ -33,7 +33,7 @@ async function getMailchimp() {
 
 function buildMergeFields(contact: SheetContact): Record<string, string> {
   const { firstName, lastName } = splitName(contact.fullName);
-  return {
+  const fields: Record<string, string> = {
     FNAME: firstName,
     LNAME: lastName,
     [FIELD_MAP.FULLNAME]: contact.fullName,
@@ -46,6 +46,14 @@ function buildMergeFields(contact: SheetContact): Record<string, string> {
     [FIELD_MAP.UPDATEDAT]: contact.updatedAt,
     [FIELD_MAP.CHANGEDID]: contact.changedId,
   };
+  // Birthday fields — only include when the sheet cell is non-empty so we
+  // don't overwrite an existing Mailchimp value with a blank string.
+  if (contact.bday)   fields[FIELD_MAP.BDAY]   = contact.bday;
+  if (contact.bday18) fields[FIELD_MAP.BDAY18] = contact.bday18;
+  if (contact.bday21) fields[FIELD_MAP.BDAY21] = contact.bday21;
+  if (contact.bday25) fields[FIELD_MAP.BDAY25] = contact.bday25;
+  if (contact.bday30) fields[FIELD_MAP.BDAY30] = contact.bday30;
+  return fields;
 }
 
 function buildTags(contact: SheetContact): string[] {
