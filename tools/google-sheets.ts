@@ -65,9 +65,11 @@ export async function getMainSheetHeaders(): Promise<string[]> {
   const tabName = (process.env.SHEET_RANGE ?? "Sheet1!A:Z").split("!")[0];
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
+  // Fetch the entire first row (no column cap) so headers beyond A:N are included
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range: `${tabName}!1:1`,
+    majorDimension: "ROWS",
   });
   return (res.data.values?.[0] ?? []).map((h: unknown) => String(h).trim());
 }
@@ -190,7 +192,10 @@ export async function appendRows(rows: string[][]): Promise<void> {
 
 export async function fetchSheetContacts(): Promise<SheetContact[]> {
   const sheetId = process.env.SHEET_ID;
-  const range = process.env.SHEET_RANGE ?? "Sheet1!A:Z";
+  // Use only the tab name — strip any column bounds (e.g. "Sheet1!A:N" → "Sheet1").
+  // This ensures newly added columns (like BDAY) are always fetched regardless of
+  // what range is configured in SHEET_RANGE.
+  const tabName = (process.env.SHEET_RANGE ?? "Sheet1!A:Z").split("!")[0];
 
   if (!sheetId) throw new Error("Missing SHEET_ID env var");
 
@@ -199,7 +204,7 @@ export async function fetchSheetContacts(): Promise<SheetContact[]> {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range,
+    range: tabName,   // fetch entire tab — all rows, all columns
   });
 
   const rows = res.data.values;
