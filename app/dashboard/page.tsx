@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, Sparkles, Database, BarChart2 } from "lucide-react";
+import { Settings, Sparkles, Database, BarChart2, Users } from "lucide-react";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
@@ -77,6 +77,16 @@ export default function DashboardPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/membership"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
+                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
+                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
+                         transition-colors"
+            >
+              <Users size={13} />
+              <span>Membership</span>
+            </Link>
             <Link
               href="/analysis"
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700

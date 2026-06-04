@@ -273,3 +273,41 @@ export interface SyncProgress {
   sheet_total?: number; // all contacts in sheet — used for label denominator
   started_at: string;
 }
+
+// ── Membership Lifecycle ───────────────────────────────────────────────────────
+
+export interface MembershipContact {
+  memberId: string;
+  fullName: string;
+  email: string;
+  membership: string;
+  date: string;        // display-formatted date for this specific event
+  daysUntil: number;   // positive = future, negative = past (overdue)
+  eventType: string;   // e.g. "Birthday", "18th Birthday", "SA Graduation", "Term Expiry"
+}
+
+export interface MembershipStats {
+  computed_at: string;
+  totalWithAnyDate: number;      // contacts where at least one date field is non-empty
+  totalWithCoreDates: number;    // contacts with bday + all 4 milestone BDAYs filled
+  upcomingBirthdays30: {
+    count: number;
+    contacts: MembershipContact[];
+  };
+  upcomingAgeTier90: {
+    count: number;
+    contacts: MembershipContact[];
+  };
+  upcomingSAEligible180: {
+    count: number;
+    contacts: MembershipContact[];
+  };
+  upcomingTermExpiry120: {
+    count: number;
+    contacts: MembershipContact[];
+  };
+  overdueFollowUps: {
+    count: number;
+    contacts: MembershipContact[];
+  };
+}
