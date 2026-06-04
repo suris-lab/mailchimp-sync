@@ -311,13 +311,13 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"], force = fals
     contacts_processed = contacts.length;
 
     if (contacts.length > 0) {
-      kvSet(KV_PROGRESS, { phase: "syncing", processed: 0, total: contacts.length, started_at: syncStartedAt }, 300).catch(() => {});
+      kvSet(KV_PROGRESS, { phase: "syncing", processed: 0, total: contacts.length, sheet_total: total_contacts, started_at: syncStartedAt }, 300).catch(() => {});
       // Upsert changed contacts to Mailchimp.
       // On first run (no fingerprints yet) skip tag API calls — merge fields only.
       // Tags sync on the next run when fingerprints exist and only a small
       // number of changed contacts need processing.
       const results = await upsertContacts(contacts, new Set(), isFirstRun, (processed) => {
-        kvSet(KV_PROGRESS, { phase: "syncing", processed, total: contacts.length, started_at: syncStartedAt }, 300).catch(() => {});
+        kvSet(KV_PROGRESS, { phase: "syncing", processed, total: contacts.length, sheet_total: total_contacts, started_at: syncStartedAt }, 300).catch(() => {});
       });
 
       for (const r of results) {

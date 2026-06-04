@@ -269,6 +269,7 @@ export interface SyncSchedule {
 export interface SyncProgress {
   phase: "fetching" | "comparing" | "syncing";
   processed: number;
-  total: number;
+  total: number;       // changed contacts — used for bar fill
+  sheet_total?: number; // all contacts in sheet — used for label denominator
   started_at: string;
 }

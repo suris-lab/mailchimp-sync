@@ -41,7 +41,7 @@ export function ManualSyncButton() {
     ? progress.phase === "fetching"
       ? "Fetching contacts…"
       : progress.total > 0
-      ? `${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()} contacts`
+      ? `${progress.processed.toLocaleString()} / ${(progress.sheet_total ?? progress.total).toLocaleString()} contacts`
       : "Preparing…"
     : "Starting…";
 
