@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, Sparkles, Database, BarChart2, Users } from "lucide-react";
+import { Settings, Sparkles, Database, BarChart2, Users, Activity, Zap } from "lucide-react";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
@@ -13,6 +13,61 @@ import { CampaignPanel } from "@/components/campaigns/CampaignPanel";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
 import { useBackupStatus } from "@/hooks/useBackupStatus";
+import { useSyncStats } from "@/hooks/useSyncStats";
+import { useMembershipStats } from "@/hooks/useMembershipStats";
+import { useMailchimpAutomations } from "@/hooks/useMailchimpAutomations";
+import type { AutomationStatus } from "@/lib/types";
+
+const AUTO_DOT: Record<AutomationStatus, string> = {
+  sending: "bg-emerald-500",
+  paused:  "bg-amber-500",
+  save:    "bg-gray-400",
+};
+const AUTO_BADGE: Record<AutomationStatus, string> = {
+  sending: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  paused:  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  save:    "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+};
+const AUTO_LABEL: Record<AutomationStatus, string> = {
+  sending: "Active",
+  paused:  "Paused",
+  save:    "Draft",
+};
+
+function workflowTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    emailSeries:    "Email Series",
+    abandonedCart:  "Abandoned Cart",
+    welcomeSeries:  "Welcome",
+    dateAdded:      "Date-based",
+    recurringEvent: "Recurring",
+    visitUrl:       "URL Trigger",
+    tagBased:       "Tag-based",
+    api:            "API Trigger",
+  };
+  return map[type] ?? type;
+}
+
+function TriggerPill({
+  count,
+  label,
+  bg,
+  text,
+}: {
+  count: number;
+  label: string;
+  bg: string;
+  text: string;
+}) {
+  return (
+    <div className={`flex flex-col items-center rounded-xl px-4 py-3 min-w-[72px] ${bg}`}>
+      <span className={`text-2xl font-black leading-none tabular-nums ${text}`}>{count}</span>
+      <span className={`text-[9px] font-bold mt-1.5 uppercase tracking-wider ${text} opacity-70`}>
+        {label}
+      </span>
+    </div>
+  );
+}
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -38,6 +93,12 @@ export default function DashboardPage() {
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
   const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
   const lastBackupAt = useBackupStatus();
+  const { data: syncStats } = useSyncStats();
+  const { data: membershipStats } = useMembershipStats();
+  const { data: automationsData, isLoading: automationsLoading } = useMailchimpAutomations();
+
+  const automations = automationsData?.automations ?? [];
+  const activeCount = automations.filter((a) => a.status === "sending").length;
 
   return (
     <div className="min-h-full bg-hebe-cream dark:bg-gray-950">
@@ -123,6 +184,175 @@ export default function DashboardPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+
+        {/* ── Operations Hub ── */}
+        <section>
+          {/* Dark title bar */}
+          <div className="rounded-t-2xl bg-gray-900 dark:bg-black border border-gray-800 px-5 py-4
+                          flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-black tracking-[0.28em] uppercase text-white">
+                Operations Hub
+              </p>
+              <p className="text-[9px] text-gray-500 tracking-widest uppercase mt-0.5">
+                Live system status
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[9px] font-bold text-emerald-400 tracking-widest uppercase">Live</span>
+            </div>
+          </div>
+
+          {/* Mailchimp Automations strip */}
+          <div className="border-x border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+            {/* Sub-header */}
+            <div className="px-5 pt-4 pb-2.5 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <Zap size={11} className="text-gray-400" />
+                <p className="text-[9px] font-black tracking-[0.2em] uppercase text-gray-400">
+                  Mailchimp Automations
+                </p>
+              </div>
+              {!automationsLoading && automationsData && (
+                <span className="text-[9px] text-gray-400 tabular-nums">
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{activeCount} active</span>
+                  {" "}· {automations.length} total
+                </span>
+              )}
+            </div>
+
+            {/* Rows */}
+            {automationsLoading ? (
+              <div className="px-5 py-3 space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-7 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                ))}
+              </div>
+            ) : automations.length === 0 ? (
+              <p className="px-5 py-4 text-xs text-gray-400">
+                No automations found in Mailchimp
+              </p>
+            ) : (
+              <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                {automations.map((a) => (
+                  <div key={a.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${AUTO_DOT[a.status] ?? "bg-gray-400"}`} />
+                    <span className="flex-1 min-w-0 text-xs font-semibold text-gray-800 dark:text-white truncate">
+                      {a.title}
+                    </span>
+                    <span className="text-[10px] text-gray-400 shrink-0 tabular-nums hidden sm:block">
+                      {a.emails_sent.toLocaleString()} sent
+                    </span>
+                    <span className="text-[9px] text-gray-400 shrink-0 hidden md:block">
+                      {workflowTypeLabel(a.workflow_type)}
+                    </span>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${AUTO_BADGE[a.status]}`}>
+                      {AUTO_LABEL[a.status]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Queue Snapshot + Membership Triggers */}
+          <div className="rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-800
+                          bg-white dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2">
+
+            {/* Queue Snapshot */}
+            <div className="p-6 border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2 mb-5">
+                <Activity size={11} className="text-gray-400" />
+                <p className="text-[9px] font-black tracking-[0.2em] uppercase text-gray-400">
+                  Queue Snapshot · Last Sync
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <p className="text-3xl font-black text-emerald-500 leading-none tabular-nums">
+                    +{syncStats?.last_new_added ?? 0}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-wider">New</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-black text-blue-500 leading-none tabular-nums">
+                    {syncStats?.last_updated ?? 0}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-wider">Updated</p>
+                </div>
+                <div>
+                  <p className={`text-3xl font-black leading-none tabular-nums ${
+                    (syncStats?.last_errors ?? 0) > 0
+                      ? "text-red-500"
+                      : "text-gray-200 dark:text-gray-700"
+                  }`}>
+                    {syncStats?.last_errors ?? 0}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-wider">Errors</p>
+                </div>
+              </div>
+              {(syncStats?.total_ever_synced ?? 0) > 0 && (
+                <p className="mt-5 text-[10px] text-gray-400">
+                  <span className="font-semibold text-gray-600 dark:text-gray-300">
+                    {syncStats!.total_ever_synced.toLocaleString()}
+                  </span>
+                  {" "}total syncs completed
+                </p>
+              )}
+            </div>
+
+            {/* Membership Triggers */}
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <Users size={11} className="text-gray-400" />
+                  <p className="text-[9px] font-black tracking-[0.2em] uppercase text-gray-400">
+                    Membership Triggers
+                  </p>
+                </div>
+                <Link
+                  href="/membership"
+                  className="text-[10px] font-semibold text-hebe-red hover:underline"
+                >
+                  View all →
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <TriggerPill
+                  count={membershipStats?.overdueFollowUps.count ?? 0}
+                  label="Overdue"
+                  bg="bg-red-50 dark:bg-red-950/30"
+                  text="text-red-600 dark:text-red-400"
+                />
+                <TriggerPill
+                  count={membershipStats?.upcomingBirthdays30.count ?? 0}
+                  label="Birthdays"
+                  bg="bg-amber-50 dark:bg-amber-950/30"
+                  text="text-amber-600 dark:text-amber-400"
+                />
+                <TriggerPill
+                  count={membershipStats?.upcomingAgeTier90.count ?? 0}
+                  label="Age-Tier"
+                  bg="bg-blue-50 dark:bg-blue-950/30"
+                  text="text-blue-600 dark:text-blue-400"
+                />
+                <TriggerPill
+                  count={membershipStats?.upcomingSAEligible180.count ?? 0}
+                  label="SA Eligible"
+                  bg="bg-violet-50 dark:bg-violet-950/30"
+                  text="text-violet-600 dark:text-violet-400"
+                />
+                <TriggerPill
+                  count={membershipStats?.upcomingTermExpiry120.count ?? 0}
+                  label="Term Expiry"
+                  bg="bg-orange-50 dark:bg-orange-950/30"
+                  text="text-orange-600 dark:text-orange-400"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ── Audience Insights ── */}
         <section>

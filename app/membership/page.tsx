@@ -582,10 +582,10 @@ export default function MembershipPage() {
           </div>
         </section>
 
-        {/* ── Upcoming Action List ── */}
+        {/* ── Tier Progression Tracker ── */}
         <section>
           <SectionHeader
-            title="Upcoming Action List"
+            title="Tier Progression Tracker"
             subtitle="All lifecycle events consolidated · sorted by urgency"
           />
           {isLoading ? (

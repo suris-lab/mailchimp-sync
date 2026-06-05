@@ -274,6 +274,25 @@ export interface SyncProgress {
   started_at: string;
 }
 
+// ── Mailchimp Automations ──────────────────────────────────────────────────────
+
+export type AutomationStatus = "sending" | "paused" | "save";
+
+export interface MailchimpAutomation {
+  id: string;
+  title: string;
+  status: AutomationStatus;
+  emails_sent: number;
+  start_time: string | null;
+  workflow_type: string;  // e.g. "emailSeries", "abandonedCart", "welcomeSeries"
+}
+
+export interface MailchimpAutomationsResponse {
+  automations: MailchimpAutomation[];
+  total_items: number;
+  computed_at: string;
+}
+
 // ── Membership Lifecycle ───────────────────────────────────────────────────────
 
 export interface MembershipContact {
