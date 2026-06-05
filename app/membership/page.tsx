@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
@@ -8,7 +8,81 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { useMembershipStats } from "@/hooks/useMembershipStats";
-import type { MembershipContact } from "@/lib/types";
+import type { MembershipContact, MembershipStats } from "@/lib/types";
+
+// ── Action list helpers ────────────────────────────────────────────────────────
+
+type ActionStatus = "Future" | "Watch" | "Prepare" | "Urgent" | "Overdue";
+
+function getStatus(daysUntil: number): ActionStatus {
+  if (daysUntil < 0)    return "Overdue";
+  if (daysUntil <= 30)  return "Urgent";
+  if (daysUntil <= 90)  return "Prepare";
+  if (daysUntil <= 180) return "Watch";
+  return "Future";
+}
+
+const STATUS_STYLES: Record<ActionStatus, string> = {
+  Overdue: "bg-hebe-red/10 text-hebe-red border border-hebe-red/30",
+  Urgent:  "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800",
+  Prepare: "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
+  Watch:   "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
+  Future:  "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700",
+};
+
+function triggerLabel(eventType: string): string {
+  const map: Record<string, string> = {
+    "Birthday":      "Birthday",
+    "18th Birthday": "18BDAY",
+    "21st Birthday": "21BDAY",
+    "25th Birthday": "25BDAY",
+    "30th Birthday": "30BDAY",
+    "SA Graduation": "SA Full Eligible",
+    "Term Expiry":   "Term Expiry",
+  };
+  return map[eventType] ?? eventType;
+}
+
+function suggestedAction(eventType: string, daysUntil: number): string {
+  const overdue = daysUntil < 0;
+  switch (eventType) {
+    case "Birthday":
+      return overdue ? "Send belated birthday greeting" : "Send birthday greeting";
+    case "18th Birthday":
+      return overdue ? "Follow up on Junior → SA conversion" : "Review conversion to Senior Associate";
+    case "21st Birthday":
+      return overdue ? "Follow up on Full Membership eligibility" : "Review Full Membership eligibility";
+    case "25th Birthday":
+    case "30th Birthday":
+      return overdue ? "Follow up on membership tier review" : "Schedule membership tier review";
+    case "SA Graduation":
+      return overdue ? "Follow up — Full Membership invitation overdue" : "Invite to upgrade to Full Membership";
+    case "Term Expiry":
+      return overdue ? "Follow up — renewal offer overdue" : "Send membership renewal offer";
+    default:
+      return "Review member record";
+  }
+}
+
+function buildActionList(stats: MembershipStats): MembershipContact[] {
+  const all = [
+    ...stats.upcomingBirthdays30.contacts,
+    ...stats.upcomingAgeTier90.contacts,
+    ...stats.upcomingSAEligible180.contacts,
+    ...stats.upcomingTermExpiry120.contacts,
+    ...stats.overdueFollowUps.contacts,
+  ];
+  // Deduplicate by email + eventType (same event can appear in multiple buckets only
+  // if windows overlap — in practice they don't, but guard anyway)
+  const seen = new Set<string>();
+  const deduped = all.filter((c) => {
+    const key = `${c.email}|${c.eventType}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return deduped.sort((a, b) => a.daysUntil - b.daysUntil);
+}
 
 // ── Action card with expandable contact table ──────────────────────────────────
 
@@ -131,10 +205,102 @@ function ActionCard({
   );
 }
 
+// ── Action list table ─────────────────────────────────────────────────────────
+
+function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
+  if (contacts.length === 0) {
+    return (
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
+        <p className="text-sm text-gray-400 dark:text-gray-500">No upcoming actions in any window</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs whitespace-nowrap">
+          <thead>
+            <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900">
+              {["Member ID", "Member Name", "Email", "Membership Tier", "Trigger Type", "Trigger Date", "Days Remaining", "Status", "Suggested Action"].map((h) => (
+                <th
+                  key={h}
+                  className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 first:pl-5 last:pr-5"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {contacts.map((c, i) => {
+              const status = getStatus(c.daysUntil);
+              return (
+                <tr
+                  key={`${c.email}|${c.eventType}|${i}`}
+                  className="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors"
+                >
+                  <td className="px-4 py-3 pl-5 font-mono text-gray-500 dark:text-gray-400">
+                    {c.memberId || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-800 dark:text-gray-200 font-medium">
+                    {c.fullName || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 dark:text-gray-500">
+                    {c.email}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                    {c.membership || "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-block rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-300">
+                      {triggerLabel(c.eventType)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400">
+                    {c.date}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-right">
+                    {c.daysUntil === 0 ? (
+                      <span className="text-hebe-red font-semibold">Today</span>
+                    ) : c.daysUntil > 0 ? (
+                      <span className="text-gray-600 dark:text-gray-300">{c.daysUntil}d</span>
+                    ) : (
+                      <span className="text-hebe-red font-medium">{Math.abs(c.daysUntil)}d ago</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[status]}`}>
+                      {status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 pr-5 text-gray-500 dark:text-gray-400 max-w-[260px] whitespace-normal">
+                    {suggestedAction(c.eventType, c.daysUntil)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {contacts.length >= 200 && (
+        <p className="px-5 py-3 text-[10px] text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-800">
+          Showing first 200 records — sync more data to see all
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MembershipPage() {
   const { data: stats, isLoading } = useMembershipStats();
+
+  const actionList = useMemo(
+    () => (stats ? buildActionList(stats) : []),
+    [stats],
+  );
 
   return (
     <div className="min-h-full bg-hebe-cream dark:bg-gray-950">
@@ -240,6 +406,23 @@ export default function MembershipPage() {
               pastTense
             />
           </div>
+        </section>
+
+        {/* ── Upcoming Action List ── */}
+        <section>
+          <SectionHeader
+            title="Upcoming Action List"
+            subtitle="All lifecycle events consolidated · sorted by urgency"
+          />
+          {isLoading ? (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 animate-pulse space-y-3">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-4 rounded bg-gray-100 dark:bg-gray-800" style={{ width: `${75 + (i % 3) * 8}%` }} />
+              ))}
+            </div>
+          ) : (
+            <ActionListTable contacts={actionList} />
+          )}
         </section>
 
         {stats && (
