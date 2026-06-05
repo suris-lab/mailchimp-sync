@@ -83,6 +83,22 @@ function toContact(
   };
 }
 
+// Age-tier triggers are only relevant when the contact is in the expected
+// membership tier leading up to that birthday. Resigned contacts are excluded
+// from all age-tier triggers regardless of tier.
+const AGE_TIER_MEMBERSHIP: Record<string, string> = {
+  "18th Birthday": "Member_Cadet",
+  "21st Birthday": "Member_Junior",
+  "25th Birthday": "Member_Associate1",
+  "30th Birthday": "Member_Associate2",
+};
+
+function eligibleForAgeTier(c: SheetContact, label: string): boolean {
+  if (c.membershipModifier === "Member_Resigned") return false;
+  const required = AGE_TIER_MEMBERSHIP[label];
+  return required ? c.membership === required : true;
+}
+
 function compute(contacts: SheetContact[]): MembershipStats {
   const birthdayBucket: MembershipContact[] = [];
   const ageTierBucket: MembershipContact[] = [];
@@ -118,6 +134,7 @@ function compute(contacts: SheetContact[]): MembershipStats {
       [c.bday30, "30th Birthday"],
     ];
     for (const [raw, label] of milestones) {
+      if (!eligibleForAgeTier(c, label)) continue;
       const d = parseSheetDate(raw);
       if (d && withinDays(d, 90)) {
         ageTierBucket.push(toContact(c, d, daysDiff(today, d), label));
@@ -146,6 +163,7 @@ function compute(contacts: SheetContact[]): MembershipStats {
       [c.tGradDate, "Term Expiry"],
     ];
     for (const [raw, label] of overdueCandidates) {
+      if (!eligibleForAgeTier(c, label)) continue;
       const d = parseSheetDate(raw);
       if (d && overdueWithinDays(d, 180)) {
         overdueBucket.push(toContact(c, d, daysDiff(today, d), label));
