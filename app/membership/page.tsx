@@ -229,6 +229,26 @@ type SortDir = "asc" | "desc";
 
 const ALL_STATUSES: ActionStatus[] = ["Overdue", "Eligible", "Urgent", "Prepare", "Watch", "Future"];
 
+// Static chip lists — always show every option regardless of what's in current data
+const TIER_CHIPS = [
+  { label: "Cadet",           value: "Member_Cadet" },
+  { label: "Junior",          value: "Member_Junior" },
+  { label: "Associate1",      value: "Member_Associate1" },
+  { label: "Associate2",      value: "Member_Associate2" },
+  { label: "SeniorAssociate", value: "Member_SeniorAssociate" },
+  { label: "Term",            value: "Member_Term" },
+];
+
+const TRIGGER_CHIPS = [
+  { label: "Birthday",    value: "Birthday" },
+  { label: "18BDAY",      value: "18th Birthday" },
+  { label: "21BDAY",      value: "21st Birthday" },
+  { label: "25BDAY",      value: "25th Birthday" },
+  { label: "30BDAY",      value: "30th Birthday" },
+  { label: "SA_GRADDATE", value: "SA Graduation" },
+  { label: "T_GRADDATE",  value: "Term Expiry" },
+];
+
 function parseDateNum(d: string): number {
   const [m, day, y] = d.split("/").map(Number);
   return (y || 0) * 10000 + (m || 0) * 100 + (day || 0);
@@ -281,19 +301,10 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
   const [sortKey, setSortKey]             = useState<SortKey>("daysUntil");
   const [sortDir, setSortDir]             = useState<SortDir>("asc");
 
-  const allTiers = useMemo(
-    () => Array.from(new Set(contacts.map((c) => c.membership || "—"))).sort(),
-    [contacts],
-  );
-  const allTriggers = useMemo(
-    () => Array.from(new Set(contacts.map((c) => triggerLabel(c.eventType)))),
-    [contacts],
-  );
-
   const filtered = useMemo(() => {
     let rows = contacts;
     if (tierFilter)    rows = rows.filter((c) => (c.membership || "—") === tierFilter);
-    if (triggerFilter) rows = rows.filter((c) => triggerLabel(c.eventType) === triggerFilter);
+    if (triggerFilter) rows = rows.filter((c) => c.eventType === triggerFilter);
     if (statusFilter)  rows = rows.filter((c) => getStatus(c.daysUntil, c.eventType) === statusFilter);
     return rows;
   }, [contacts, tierFilter, triggerFilter, statusFilter]);
@@ -339,16 +350,16 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 w-14">Tier</span>
           <FilterChip label="All" active={!tierFilter} onClick={() => setTierFilter("")} />
-          {allTiers.map((t) => (
-            <FilterChip key={t} label={tierLabel(t)} active={tierFilter === t} onClick={() => setTierFilter(tierFilter === t ? "" : t)} />
+          {TIER_CHIPS.map((t) => (
+            <FilterChip key={t.value} label={t.label} active={tierFilter === t.value} onClick={() => setTierFilter(tierFilter === t.value ? "" : t.value)} />
           ))}
         </div>
         {/* Row: Trigger Type */}
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 w-14">Trigger</span>
           <FilterChip label="All" active={!triggerFilter} onClick={() => setTriggerFilter("")} />
-          {allTriggers.map((t) => (
-            <FilterChip key={t} label={t} active={triggerFilter === t} onClick={() => setTriggerFilter(triggerFilter === t ? "" : t)} />
+          {TRIGGER_CHIPS.map((t) => (
+            <FilterChip key={t.value} label={t.label} active={triggerFilter === t.value} onClick={() => setTriggerFilter(triggerFilter === t.value ? "" : t.value)} />
           ))}
         </div>
         {/* Row: Status */}
