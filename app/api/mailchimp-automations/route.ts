@@ -39,6 +39,9 @@ export async function GET(request: Request) {
       title: a.settings?.title ?? a.id,
       status: (a.status ?? "save") as AutomationStatus,
       emails_sent: a.emails_sent ?? 0,
+      subscriber_count: a.recipients?.recipient_count ?? 0,
+      open_rate: a.report_summary?.open_rate ?? null,
+      click_rate: a.report_summary?.click_rate ?? null,
       start_time: a.start_time ?? null,
       workflow_type: a.trigger_settings?.workflow_type ?? "emailSeries",
     }));
@@ -63,6 +66,9 @@ export async function GET(request: Request) {
             title: j.name ?? j.id,
             status,
             emails_sent: j.emails_sent ?? 0,
+            subscriber_count: j.recipients?.recipient_count ?? 0,
+            open_rate: j.report_summary?.open_rate ?? null,
+            click_rate: j.report_summary?.click_rate ?? null,
             start_time: j.created_at ?? null,
             workflow_type: "customerJourney",
           };

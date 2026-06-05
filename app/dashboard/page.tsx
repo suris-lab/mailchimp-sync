@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, Sparkles, Database, BarChart2, Users, Activity, Zap } from "lucide-react";
+import { Settings, Sparkles, Database, BarChart2, Users, Zap } from "lucide-react";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
@@ -13,7 +13,6 @@ import { CampaignPanel } from "@/components/campaigns/CampaignPanel";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
 import { useBackupStatus } from "@/hooks/useBackupStatus";
-import { useSyncStats } from "@/hooks/useSyncStats";
 import { useMembershipStats } from "@/hooks/useMembershipStats";
 import { useMailchimpAutomations } from "@/hooks/useMailchimpAutomations";
 import type { AutomationStatus } from "@/lib/types";
@@ -25,7 +24,7 @@ const AUTO_DOT: Record<AutomationStatus, string> = {
 };
 
 const AUTO_LABEL: Record<AutomationStatus, string> = {
-  sending: "Active",
+  sending: "Running",
   paused:  "Paused",
   save:    "Draft",
 };
@@ -43,6 +42,11 @@ function workflowTypeLabel(type: string): string {
     customerJourney: "Customer Journey",
   };
   return map[type] ?? type;
+}
+
+function fmtRate(r: number | null): string {
+  if (r === null) return "—";
+  return (r * 100).toFixed(1) + "%";
 }
 
 function daysAgo(n: number) {
@@ -69,12 +73,11 @@ export default function DashboardPage() {
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
   const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
   const lastBackupAt = useBackupStatus();
-  const { data: syncStats } = useSyncStats();
   const { data: membershipStats } = useMembershipStats();
   const { data: automationsData, isLoading: automationsLoading } = useMailchimpAutomations();
 
   const automations = automationsData?.automations ?? [];
-  const activeCount = automations.filter((a) => a.status === "sending").length;
+  const runningCount = automations.filter((a) => a.status === "sending").length;
 
   return (
     <div className="min-h-full bg-hebe-cream dark:bg-gray-950">
@@ -86,13 +89,7 @@ export default function DashboardPage() {
 
           {/* Brand */}
           <div className="flex items-center gap-3 min-w-0">
-            <Image
-              src="/logo.png"
-              alt="HHYC"
-              width={48}
-              height={48}
-              className="object-contain shrink-0"
-            />
+            <Image src="/logo.png" alt="HHYC" width={48} height={48} className="object-contain shrink-0" />
             <div className="min-w-0 hidden sm:block">
               <p className="text-sm font-bold tracking-tight text-gray-900 dark:text-white leading-none">
                 HHYC CRM Touchpoint System
@@ -163,16 +160,13 @@ export default function DashboardPage() {
 
         {/* ── Operations Hub ── */}
         <section>
+
           {/* Dark title bar */}
           <div className="rounded-t-2xl bg-gray-900 dark:bg-black border border-gray-800 px-5 py-4
                           flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-black tracking-[0.28em] uppercase text-white">
-                Operations Hub
-              </p>
-              <p className="text-[9px] text-gray-500 tracking-widest uppercase mt-0.5">
-                Live system status
-              </p>
+              <p className="text-[11px] font-black tracking-[0.28em] uppercase text-white">Operations Hub</p>
+              <p className="text-[9px] text-gray-500 tracking-widest uppercase mt-0.5">Live system status</p>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -180,10 +174,11 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Mailchimp Automations strip */}
+          {/* Mailchimp Automations */}
           <div className="border-x border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+
             {/* Sub-header */}
-            <div className="px-5 pt-4 pb-2.5 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+            <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <Zap size={11} className="text-gray-400" />
                 <p className="text-[9px] font-black tracking-[0.2em] uppercase text-gray-400">
@@ -192,9 +187,9 @@ export default function DashboardPage() {
               </div>
               {!automationsLoading && automationsData && (
                 <span className="text-[9px] text-gray-400 tabular-nums">
-                  {activeCount > 0 && (
+                  {runningCount > 0 && (
                     <>
-                      <span className="font-semibold text-gray-900 dark:text-white">{activeCount} active</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">{runningCount} running</span>
                       {" · "}
                     </>
                   )}
@@ -203,40 +198,71 @@ export default function DashboardPage() {
               )}
             </div>
 
+            {/* Column headers */}
+            {!automationsLoading && automations.length > 0 && (
+              <div className="px-5 py-2 grid grid-cols-[1fr_80px_80px_70px_70px_70px] gap-3 border-b border-gray-50 dark:border-gray-800/60">
+                {["Name", "Type", "Status", "Subscribers", "Open Rate", "Click Rate"].map((h, i) => (
+                  <span
+                    key={h}
+                    className={`text-[9px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 ${i >= 3 ? "text-right" : ""}`}
+                  >
+                    {h}
+                  </span>
+                ))}
+              </div>
+            )}
+
             {/* Rows */}
             {automationsLoading ? (
               <div className="px-5 py-3 space-y-2">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-7 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                  <div key={i} className="h-8 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
                 ))}
               </div>
             ) : automations.length === 0 ? (
-              <p className="px-5 py-4 text-xs text-gray-400">
-                No automations found in Mailchimp
-              </p>
+              <p className="px-5 py-6 text-xs text-gray-400">No automations found in Mailchimp</p>
             ) : (
               <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
                 {automations.map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
+                    className="grid grid-cols-[1fr_80px_80px_70px_70px_70px] gap-3 items-center
+                               px-5 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
                   >
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${AUTO_DOT[a.status] ?? "bg-gray-400"}`} />
-                    <span className="flex-1 min-w-0 text-xs font-medium text-gray-800 dark:text-gray-100 truncate">
-                      {a.title}
-                    </span>
-                    <span className="text-[10px] text-gray-400 shrink-0 tabular-nums hidden sm:block">
-                      {a.emails_sent.toLocaleString()} sent
-                    </span>
-                    <span className="text-[9px] text-gray-400 shrink-0 hidden md:block">
+                    {/* Name + dot */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${AUTO_DOT[a.status] ?? "bg-gray-400"}`} />
+                      <span className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">
+                        {a.title}
+                      </span>
+                    </div>
+                    {/* Type */}
+                    <span className="text-[10px] text-gray-400 truncate">
                       {workflowTypeLabel(a.workflow_type)}
                     </span>
-                    <span className={`text-[9px] font-medium shrink-0 ${
-                      a.status === "sending"
-                        ? "text-gray-900 dark:text-white font-semibold"
-                        : "text-gray-400"
-                    }`}>
-                      {AUTO_LABEL[a.status]}
+                    {/* Status badge */}
+                    <span>
+                      <span className={`inline-block text-[9px] font-semibold px-2 py-0.5 rounded-full border ${
+                        a.status === "sending"
+                          ? "border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30"
+                          : a.status === "paused"
+                          ? "border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800"
+                          : "border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-600 bg-transparent"
+                      }`}>
+                        {AUTO_LABEL[a.status]}
+                      </span>
+                    </span>
+                    {/* Subscribers */}
+                    <span className="text-[11px] tabular-nums text-gray-600 dark:text-gray-300 text-right">
+                      {a.subscriber_count > 0 ? a.subscriber_count.toLocaleString() : "—"}
+                    </span>
+                    {/* Open rate */}
+                    <span className="text-[11px] tabular-nums text-gray-600 dark:text-gray-300 text-right">
+                      {fmtRate(a.open_rate)}
+                    </span>
+                    {/* Click rate */}
+                    <span className="text-[11px] tabular-nums text-gray-600 dark:text-gray-300 text-right">
+                      {fmtRate(a.click_rate)}
                     </span>
                   </div>
                 ))}
@@ -244,88 +270,42 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Queue Snapshot + Membership Triggers */}
+          {/* Membership Triggers — full-width strip */}
           <div className="rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-800
-                          bg-white dark:bg-gray-900 grid grid-cols-1 sm:grid-cols-2">
-
-            {/* Queue Snapshot */}
-            <div className="p-6 border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-gray-800">
-              <div className="flex items-center gap-2 mb-5">
-                <Activity size={11} className="text-gray-400" />
+                          bg-white dark:bg-gray-900 px-6 py-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users size={11} className="text-gray-400" />
                 <p className="text-[9px] font-black tracking-[0.2em] uppercase text-gray-400">
-                  Queue Snapshot · Last Sync
+                  Membership Triggers
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-6">
-                <div>
-                  <p className="text-3xl font-black text-gray-900 dark:text-white leading-none tabular-nums">
-                    +{syncStats?.last_new_added ?? 0}
-                  </p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-wider">New</p>
-                </div>
-                <div>
-                  <p className="text-3xl font-black text-gray-900 dark:text-white leading-none tabular-nums">
-                    {syncStats?.last_updated ?? 0}
-                  </p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-wider">Updated</p>
-                </div>
-                <div>
-                  <p className={`text-3xl font-black leading-none tabular-nums ${
-                    (syncStats?.last_errors ?? 0) > 0
-                      ? "text-hebe-red"
-                      : "text-gray-200 dark:text-gray-700"
-                  }`}>
-                    {syncStats?.last_errors ?? 0}
-                  </p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-wider">Errors</p>
-                </div>
-              </div>
-              {(syncStats?.total_ever_synced ?? 0) > 0 && (
-                <p className="mt-5 text-[10px] text-gray-400">
-                  <span className="font-semibold text-gray-600 dark:text-gray-300">
-                    {syncStats!.total_ever_synced.toLocaleString()}
-                  </span>
-                  {" "}total syncs completed
-                </p>
-              )}
+              <Link href="/membership" className="text-[10px] font-semibold text-hebe-red hover:underline">
+                View all →
+              </Link>
             </div>
-
-            {/* Membership Triggers */}
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Users size={11} className="text-gray-400" />
-                  <p className="text-[9px] font-black tracking-[0.2em] uppercase text-gray-400">
-                    Membership Triggers
+            <div className="flex items-start gap-8">
+              {[
+                { count: membershipStats?.overdueFollowUps.count ?? 0,      label: "Overdue" },
+                { count: membershipStats?.upcomingBirthdays30.count ?? 0,   label: "Birthdays" },
+                { count: membershipStats?.upcomingAgeTier90.count ?? 0,     label: "Age-Tier" },
+                { count: membershipStats?.upcomingSAEligible180.count ?? 0, label: "SA Eligible" },
+                { count: membershipStats?.upcomingTermExpiry120.count ?? 0, label: "Term Expiry" },
+              ].map(({ count, label }) => (
+                <div key={label} className="text-center min-w-[48px]">
+                  <p className={`text-2xl font-black tabular-nums leading-none ${
+                    count > 0 ? "text-gray-900 dark:text-white" : "text-gray-200 dark:text-gray-700"
+                  }`}>
+                    {count}
+                  </p>
+                  <p className="text-[9px] font-semibold text-gray-400 mt-2 uppercase tracking-wider whitespace-nowrap">
+                    {label}
                   </p>
                 </div>
-                <Link
-                  href="/membership"
-                  className="text-[10px] font-semibold text-hebe-red hover:underline"
-                >
-                  View all →
-                </Link>
-              </div>
-              <div className="space-y-2.5">
-                {[
-                  { count: membershipStats?.overdueFollowUps.count ?? 0,      label: "Overdue" },
-                  { count: membershipStats?.upcomingBirthdays30.count ?? 0,   label: "Birthdays (30d)" },
-                  { count: membershipStats?.upcomingAgeTier90.count ?? 0,     label: "Age-Tier (90d)" },
-                  { count: membershipStats?.upcomingSAEligible180.count ?? 0, label: "SA Eligible (180d)" },
-                  { count: membershipStats?.upcomingTermExpiry120.count ?? 0, label: "Term Expiry (120d)" },
-                ].map(({ count, label }) => (
-                  <div key={label} className="flex items-center justify-between gap-4">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 min-w-0">{label}</span>
-                    <span className={`text-sm font-black tabular-nums shrink-0 ${
-                      count > 0 ? "text-gray-900 dark:text-white" : "text-gray-300 dark:text-gray-700"
-                    }`}>
-                      {count}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
           </div>
+
         </section>
 
         {/* ── Audience Insights ── */}
