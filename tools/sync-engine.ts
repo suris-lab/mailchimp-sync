@@ -14,6 +14,7 @@ const KV_CONTACT_FP = "sync:contact_fingerprints_v5";
 const KV_SHEET_MODIFIED = "sync:sheet_modified_at";
 const KV_PROGRESS = "sync:progress";
 const KV_LIFECYCLE_STATS = "sync:lifecycle_stats";
+const KV_MEMBERSHIP_STATS = "sync:membership_stats";
 // Unsubscribed email set cached by computeLifecycleStats — read by runSync to skip
 // unsubscribed contacts without an extra Mailchimp API call per sync.
 const KV_UNSUBSCRIBED = "sync:unsubscribed_emails";
@@ -390,6 +391,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"], force = fals
   } satisfies SyncStats);
 
   kvDel(KV_PROGRESS).catch(() => {});
+  kvDel(KV_MEMBERSHIP_STATS).catch(() => {}); // invalidate so next page load recomputes
 
   return log;
 }

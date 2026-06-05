@@ -96,6 +96,7 @@ export function ManualSyncButton() {
       );
       await mutate("/api/audience-stats");
       await mutate("/api/growth-stats");
+      await mutate("/api/membership-stats");
     } catch (err) {
       clearTimeout(pollTimer);
       stopPolling();
