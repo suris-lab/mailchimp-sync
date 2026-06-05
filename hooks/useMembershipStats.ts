@@ -9,7 +9,16 @@ export function useMembershipStats() {
   const { data, error, isLoading, mutate } = useSWR<MembershipStats | null>(
     "/api/membership-stats",
     fetcher,
-    { refreshInterval: 0, revalidateOnFocus: false },
+    { refreshInterval: 0, revalidateOnFocus: false, revalidateOnMount: true },
   );
-  return { data, error, isLoading, mutate };
+
+  // Force-refresh: busts the server-side KV cache then revalidates SWR
+  async function refresh() {
+    await mutate(
+      fetch("/api/membership-stats?bust=1").then((r) => r.json()),
+      { revalidate: false },
+    );
+  }
+
+  return { data, error, isLoading, mutate, refresh };
 }

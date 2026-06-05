@@ -194,10 +194,14 @@ function compute(contacts: SheetContact[]): MembershipStats {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cached = await kvGet<MembershipStats>(KV_KEY);
-    if (cached) return NextResponse.json(cached);
+    const bust = new URL(request.url).searchParams.has("bust");
+
+    if (!bust) {
+      const cached = await kvGet<MembershipStats>(KV_KEY);
+      if (cached) return NextResponse.json(cached);
+    }
 
     const contacts = await fetchSheetContacts();
     const stats = compute(contacts);

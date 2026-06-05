@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronUp, ChevronsUpDown, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, ChevronsUpDown, X, RefreshCw } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { KpiCard } from "@/components/ui/KpiCard";
@@ -449,7 +449,13 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MembershipPage() {
-  const { data: stats, isLoading } = useMembershipStats();
+  const { data: stats, isLoading, refresh } = useMembershipStats();
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try { await refresh(); } finally { setRefreshing(false); }
+  }
 
   const actionList = useMemo(
     () => (stats ? buildActionList(stats) : []),
@@ -477,7 +483,20 @@ export default function MembershipPage() {
               <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Lifecycle tracking & upcoming actions</p>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing || isLoading}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
+                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
+                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
+                         disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
+              <span>Refresh</span>
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
