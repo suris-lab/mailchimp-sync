@@ -298,6 +298,7 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
   const [tierFilter, setTierFilter]       = useState("");
   const [triggerFilter, setTriggerFilter] = useState("");
   const [statusFilter, setStatusFilter]   = useState("");
+  const [daysFilter, setDaysFilter]       = useState("");
   const [sortKey, setSortKey]             = useState<SortKey>("daysUntil");
   const [sortDir, setSortDir]             = useState<SortDir>("asc");
 
@@ -331,8 +332,12 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
     if (tierFilter)    rows = rows.filter((c) => (c.membership || "—") === tierFilter);
     if (triggerFilter) rows = rows.filter((c) => triggerLabel(c.eventType) === triggerFilter);
     if (statusFilter)  rows = rows.filter((c) => getStatus(c.daysUntil, c.eventType) === statusFilter);
+    if (daysFilter) {
+      const max = Number(daysFilter);
+      rows = rows.filter((c) => c.daysUntil >= 0 && c.daysUntil <= max);
+    }
     return rows;
-  }, [contacts, tierFilter, triggerFilter, statusFilter]);
+  }, [contacts, tierFilter, triggerFilter, statusFilter, daysFilter]);
 
   const sorted = useMemo(() => {
     const sign = sortDir === "asc" ? 1 : -1;
@@ -352,10 +357,10 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
     else { setSortKey(key); setSortDir("asc"); }
   }
 
-  const anyFilter = !!(tierFilter || triggerFilter || statusFilter);
+  const anyFilter = !!(tierFilter || triggerFilter || statusFilter || daysFilter);
 
   function clearFilters() {
-    setTierFilter(""); setTriggerFilter(""); setStatusFilter("");
+    setTierFilter(""); setTriggerFilter(""); setStatusFilter(""); setDaysFilter("");
   }
 
   if (contacts.length === 0) {
@@ -385,6 +390,19 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
           <FilterChip label="All" active={!triggerFilter} onClick={() => setTriggerFilter("")} />
           {allTriggers.map((t) => (
             <FilterChip key={t} label={t} active={triggerFilter === t} onClick={() => setTriggerFilter(triggerFilter === t ? "" : t)} />
+          ))}
+        </div>
+        {/* Row: Days Remaining */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 w-14">Days</span>
+          <FilterChip label="All" active={!daysFilter} onClick={() => setDaysFilter("")} />
+          {([{ label: "30d", value: "30" }, { label: "60d", value: "60" }, { label: "180d", value: "180" }, { label: "1yr", value: "365" }]).map(({ label, value }) => (
+            <FilterChip
+              key={value}
+              label={label}
+              active={daysFilter === value}
+              onClick={() => setDaysFilter(daysFilter === value ? "" : value)}
+            />
           ))}
         </div>
         {/* Row: Status */}
