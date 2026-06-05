@@ -41,10 +41,23 @@ function triggerLabel(eventType: string): string {
     "21st Birthday": "21BDAY",
     "25th Birthday": "25BDAY",
     "30th Birthday": "30BDAY",
-    "SA Graduation": "SA Full Eligible",
-    "Term Expiry":   "Term Expiry",
+    "SA Graduation": "SA_GRADDATE",
+    "Term Expiry":   "T_GRADDATE",
   };
   return map[eventType] ?? eventType;
+}
+
+const TIER_DISPLAY: Record<string, string> = {
+  "Member_Cadet":           "Cadet",
+  "Member_Junior":          "Junior",
+  "Member_Associate1":      "Associate1",
+  "Member_Associate2":      "Associate2",
+  "Member_SeniorAssociate": "SeniorAssociate",
+  "Member_Term":            "Term",
+};
+
+function tierLabel(raw: string): string {
+  return TIER_DISPLAY[raw] ?? raw.replace(/^Member_/, "");
 }
 
 function suggestedAction(eventType: string, daysUntil: number): string {
@@ -327,7 +340,7 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 w-14">Tier</span>
           <FilterChip label="All" active={!tierFilter} onClick={() => setTierFilter("")} />
           {allTiers.map((t) => (
-            <FilterChip key={t} label={t} active={tierFilter === t} onClick={() => setTierFilter(tierFilter === t ? "" : t)} />
+            <FilterChip key={t} label={tierLabel(t)} active={tierFilter === t} onClick={() => setTierFilter(tierFilter === t ? "" : t)} />
           ))}
         </div>
         {/* Row: Trigger Type */}
