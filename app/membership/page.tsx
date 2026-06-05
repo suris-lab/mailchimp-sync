@@ -40,7 +40,7 @@ function triggerLabel(eventType: string): string {
     "18th Birthday": "18BDAY",
     "21st Birthday": "21BDAY",
     "25th Birthday": "25BDAY",
-    "30th Birthday": "30BDAY",
+    "30th Birthday": "31BDAY",
     "SA Graduation": "SA_GRADDATE",
     "Term Expiry":   "T_GRADDATE",
   };
