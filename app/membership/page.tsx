@@ -37,7 +37,7 @@ const STATUS_STYLES: Record<ActionStatus, string> = {
 function triggerLabel(eventType: string): string {
   const map: Record<string, string> = {
     "Birthday":      "Birthday",
-    "18th Birthday": "18BDAY",
+    "18th Birthday": "Cadet Conversion",
     "21st Birthday": "21BDAY",
     "25th Birthday": "25BDAY",
     "30th Birthday": "31BDAY",
@@ -197,7 +197,7 @@ function ActionCard({
                   </td>
                   {showEventType && (
                     <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
-                      {c.eventType}
+                      {triggerLabel(c.eventType)}
                     </td>
                   )}
                   <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 font-mono">
@@ -240,7 +240,7 @@ const TIER_ORDER = [
 
 const TRIGGER_ORDER = [
   "Birthday",
-  "18BDAY",
+  "Cadet Conversion",
   "21BDAY",
   "25BDAY",
   "31BDAY",
