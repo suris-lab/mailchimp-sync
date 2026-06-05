@@ -229,6 +229,25 @@ type SortDir = "asc" | "desc";
 
 const ALL_STATUSES: ActionStatus[] = ["Overdue", "Eligible", "Urgent", "Prepare", "Watch", "Future"];
 
+const TIER_ORDER = [
+  "Member_Cadet",
+  "Member_Junior",
+  "Member_Associate1",
+  "Member_Associate2",
+  "Member_SeniorAssociate",
+  "Member_Term",
+];
+
+const TRIGGER_ORDER = [
+  "Birthday",
+  "18BDAY",
+  "21BDAY",
+  "25BDAY",
+  "31BDAY",
+  "SA_GRADDATE",
+  "T_GRADDATE",
+];
+
 
 function parseDateNum(d: string): number {
   const [m, day, y] = d.split("/").map(Number);
@@ -283,11 +302,27 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
   const [sortDir, setSortDir]             = useState<SortDir>("asc");
 
   const allTiers = useMemo(
-    () => Array.from(new Set(contacts.map((c) => c.membership || "—"))).sort(),
+    () =>
+      Array.from(new Set(contacts.map((c) => c.membership || "—"))).sort((a, b) => {
+        const ai = TIER_ORDER.indexOf(a);
+        const bi = TIER_ORDER.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      }),
     [contacts],
   );
   const allTriggers = useMemo(
-    () => Array.from(new Set(contacts.map((c) => triggerLabel(c.eventType)))),
+    () =>
+      Array.from(new Set(contacts.map((c) => triggerLabel(c.eventType)))).sort((a, b) => {
+        const ai = TRIGGER_ORDER.indexOf(a);
+        const bi = TRIGGER_ORDER.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      }),
     [contacts],
   );
 
