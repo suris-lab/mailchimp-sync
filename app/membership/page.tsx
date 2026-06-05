@@ -12,9 +12,12 @@ import type { MembershipContact, MembershipStats } from "@/lib/types";
 
 // ── Action list helpers ────────────────────────────────────────────────────────
 
-type ActionStatus = "Future" | "Watch" | "Prepare" | "Urgent" | "Overdue";
+type ActionStatus = "Future" | "Watch" | "Prepare" | "Urgent" | "Overdue" | "Eligible";
 
-function getStatus(daysUntil: number): ActionStatus {
+function getStatus(daysUntil: number, eventType: string): ActionStatus {
+  // SA members who pass their grad date are "Eligible" — conversion is the member's choice,
+  // not a deadline breach, so "Overdue" would be misleading.
+  if (daysUntil < 0 && eventType === "SA Graduation") return "Eligible";
   if (daysUntil < 0)    return "Overdue";
   if (daysUntil <= 30)  return "Urgent";
   if (daysUntil <= 90)  return "Prepare";
@@ -23,11 +26,12 @@ function getStatus(daysUntil: number): ActionStatus {
 }
 
 const STATUS_STYLES: Record<ActionStatus, string> = {
-  Overdue: "bg-hebe-red/10 text-hebe-red border border-hebe-red/30",
-  Urgent:  "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800",
-  Prepare: "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
-  Watch:   "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
-  Future:  "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700",
+  Overdue:  "bg-hebe-red/10 text-hebe-red border border-hebe-red/30",
+  Eligible: "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800",
+  Urgent:   "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800",
+  Prepare:  "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
+  Watch:    "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
+  Future:   "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700",
 };
 
 function triggerLabel(eventType: string): string {
@@ -56,7 +60,7 @@ function suggestedAction(eventType: string, daysUntil: number): string {
     case "30th Birthday":
       return overdue ? "Follow up on membership tier review" : "Schedule membership tier review";
     case "SA Graduation":
-      return overdue ? "Follow up — Full Membership invitation overdue" : "Invite to upgrade to Full Membership";
+      return overdue ? "Review Full Membership application" : "Invite to apply for Full Membership";
     case "Term Expiry":
       return overdue ? "Follow up — renewal offer overdue" : "Send membership renewal offer";
     default:
@@ -234,7 +238,7 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
           </thead>
           <tbody>
             {contacts.map((c, i) => {
-              const status = getStatus(c.daysUntil);
+              const status = getStatus(c.daysUntil, c.eventType);
               return (
                 <tr
                   key={`${c.email}|${c.eventType}|${i}`}
