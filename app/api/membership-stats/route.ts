@@ -196,7 +196,68 @@ function compute(contacts: SheetContact[]): MembershipStats {
 
 export async function GET(request: Request) {
   try {
-    const bust = new URL(request.url).searchParams.has("bust");
+    const params = new URL(request.url).searchParams;
+    const bust  = params.has("bust");
+    const debug = params.get("debug"); // "30bday" | "18bday" | "21bday" | "25bday" | "all"
+
+    // Debug mode: skip cache, return per-contact diagnostic for age-tier triggers
+    if (debug) {
+      const contacts = await fetchSheetContacts();
+      const today = todayMidnight();
+
+      const MILESTONE_FIELDS: Record<string, { raw: (c: SheetContact) => string; label: string }> = {
+        "18bday": { raw: (c) => c.bday18, label: "18th Birthday" },
+        "21bday": { raw: (c) => c.bday21, label: "21st Birthday" },
+        "25bday": { raw: (c) => c.bday25, label: "25th Birthday" },
+        "30bday": { raw: (c) => c.bday30, label: "30th Birthday" },
+      };
+
+      const targets = debug === "all"
+        ? Object.values(MILESTONE_FIELDS)
+        : [MILESTONE_FIELDS[debug.toLowerCase()]].filter(Boolean);
+
+      const rows = contacts
+        .filter((c) => targets.some(({ raw }) => raw(c)))
+        .map((c) => {
+          const checks = targets.map(({ raw, label }) => {
+            const rawVal = raw(c);
+            const parsed = parseSheetDate(rawVal);
+            const resigned = c.membershipModifier === "Member_Resigned";
+            const requiredTier = AGE_TIER_MEMBERSHIP[label];
+            const tierMatch = requiredTier ? c.membership === requiredTier : true;
+            const daysUntil = parsed ? daysDiff(today, parsed) : null;
+            let bucket = "—";
+            if (parsed) {
+              if (withinDays(parsed, 90))        bucket = "ageTier (upcoming)";
+              else if (overdueWithinDays(parsed, 180)) bucket = "overdue";
+              else if (daysUntil !== null && daysUntil > 90) bucket = "too far (>90d)";
+              else bucket = "too old (>180d past)";
+            }
+            return {
+              trigger: label,
+              raw_value: rawVal || "(empty)",
+              parsed: parsed ? fmtDate(parsed) : null,
+              days_until: daysUntil,
+              resigned,
+              required_tier: requiredTier,
+              actual_tier: c.membership,
+              tier_match: tierMatch,
+              eligible: !resigned && tierMatch,
+              would_appear_in: (!resigned && tierMatch && parsed) ? bucket : "excluded (eligibility)",
+            };
+          });
+          return {
+            memberId: c.memberId,
+            fullName: c.fullName,
+            email: c.email,
+            membership: c.membership,
+            membershipModifier: c.membershipModifier || "(none)",
+            checks,
+          };
+        });
+
+      return NextResponse.json({ debug_mode: debug, today: fmtDate(today), contacts: rows });
+    }
 
     if (!bust) {
       const cached = await kvGet<MembershipStats>(KV_KEY);
