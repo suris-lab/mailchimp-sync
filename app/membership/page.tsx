@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, ChevronsUpDown, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { KpiCard } from "@/components/ui/KpiCard";
@@ -211,7 +211,104 @@ function ActionCard({
 
 // ── Action list table ─────────────────────────────────────────────────────────
 
+type SortKey = "daysUntil" | "date" | "tier" | "triggerType";
+type SortDir = "asc" | "desc";
+
+const ALL_STATUSES: ActionStatus[] = ["Overdue", "Eligible", "Urgent", "Prepare", "Watch", "Future"];
+
+function parseDateNum(d: string): number {
+  const [m, day, y] = d.split("/").map(Number);
+  return (y || 0) * 10000 + (m || 0) * 100 + (day || 0);
+}
+
+function FilterChip({
+  label, active, onClick,
+}: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border transition-colors ${
+        active
+          ? "bg-hebe-red border-hebe-red text-white"
+          : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function SortTh({
+  label, col, active, dir, onSort, align = "left",
+}: {
+  label: string; col: SortKey; active: boolean; dir: SortDir;
+  onSort: (k: SortKey) => void; align?: "left" | "right";
+}) {
+  return (
+    <th
+      onClick={() => onSort(col)}
+      className={`px-4 py-3 text-[10px] font-semibold uppercase tracking-widest cursor-pointer select-none
+                  transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200
+                  ${align === "right" ? "text-right" : "text-left"}`}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
+        {label}
+        {active
+          ? <span className="text-hebe-red">{dir === "asc" ? "↑" : "↓"}</span>
+          : <ChevronsUpDown size={10} className="text-gray-300 dark:text-gray-700" />}
+      </span>
+    </th>
+  );
+}
+
 function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
+  const [tierFilter, setTierFilter]       = useState("");
+  const [triggerFilter, setTriggerFilter] = useState("");
+  const [statusFilter, setStatusFilter]   = useState("");
+  const [sortKey, setSortKey]             = useState<SortKey>("daysUntil");
+  const [sortDir, setSortDir]             = useState<SortDir>("asc");
+
+  const allTiers = useMemo(
+    () => Array.from(new Set(contacts.map((c) => c.membership || "—"))).sort(),
+    [contacts],
+  );
+  const allTriggers = useMemo(
+    () => Array.from(new Set(contacts.map((c) => triggerLabel(c.eventType)))),
+    [contacts],
+  );
+
+  const filtered = useMemo(() => {
+    let rows = contacts;
+    if (tierFilter)    rows = rows.filter((c) => (c.membership || "—") === tierFilter);
+    if (triggerFilter) rows = rows.filter((c) => triggerLabel(c.eventType) === triggerFilter);
+    if (statusFilter)  rows = rows.filter((c) => getStatus(c.daysUntil, c.eventType) === statusFilter);
+    return rows;
+  }, [contacts, tierFilter, triggerFilter, statusFilter]);
+
+  const sorted = useMemo(() => {
+    const sign = sortDir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case "daysUntil":   return (a.daysUntil - b.daysUntil) * sign;
+        case "date":        return (parseDateNum(a.date) - parseDateNum(b.date)) * sign;
+        case "tier":        return a.membership.localeCompare(b.membership) * sign;
+        case "triggerType": return triggerLabel(a.eventType).localeCompare(triggerLabel(b.eventType)) * sign;
+        default:            return 0;
+      }
+    });
+  }, [filtered, sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  const anyFilter = !!(tierFilter || triggerFilter || statusFilter);
+
+  function clearFilters() {
+    setTierFilter(""); setTriggerFilter(""); setStatusFilter("");
+  }
+
   if (contacts.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
@@ -222,56 +319,96 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+
+      {/* ── Filter bar ── */}
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 space-y-2.5">
+        {/* Row: Membership Tier */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 w-14">Tier</span>
+          <FilterChip label="All" active={!tierFilter} onClick={() => setTierFilter("")} />
+          {allTiers.map((t) => (
+            <FilterChip key={t} label={t} active={tierFilter === t} onClick={() => setTierFilter(tierFilter === t ? "" : t)} />
+          ))}
+        </div>
+        {/* Row: Trigger Type */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 w-14">Trigger</span>
+          <FilterChip label="All" active={!triggerFilter} onClick={() => setTriggerFilter("")} />
+          {allTriggers.map((t) => (
+            <FilterChip key={t} label={t} active={triggerFilter === t} onClick={() => setTriggerFilter(triggerFilter === t ? "" : t)} />
+          ))}
+        </div>
+        {/* Row: Status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 flex-1">
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 w-14">Status</span>
+            <FilterChip label="All" active={!statusFilter} onClick={() => setStatusFilter("")} />
+            {ALL_STATUSES.map((s) => (
+              <FilterChip key={s} label={s} active={statusFilter === s} onClick={() => setStatusFilter(statusFilter === s ? "" : s)} />
+            ))}
+          </div>
+          <div className="flex items-center gap-3 shrink-0 pl-4">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums">
+              {sorted.length} / {contacts.length}
+            </span>
+            {anyFilter && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-hebe-red dark:hover:text-hebe-red transition-colors"
+              >
+                <X size={11} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Table ── */}
       <div className="overflow-x-auto">
         <table className="w-full text-xs whitespace-nowrap">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900">
-              {["Member ID", "Member Name", "Email", "Membership Tier", "Trigger Type", "Trigger Date", "Days Remaining", "Status", "Suggested Action"].map((h) => (
-                <th
-                  key={h}
-                  className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 first:pl-5 last:pr-5"
-                >
-                  {h}
-                </th>
-              ))}
+              <th className="px-4 py-3 pl-5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Member ID</th>
+              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Member Name</th>
+              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Email</th>
+              <SortTh label="Membership Tier" col="tier"        active={sortKey === "tier"}        dir={sortDir} onSort={toggleSort} />
+              <SortTh label="Trigger Type"    col="triggerType" active={sortKey === "triggerType"} dir={sortDir} onSort={toggleSort} />
+              <SortTh label="Trigger Date"    col="date"        active={sortKey === "date"}        dir={sortDir} onSort={toggleSort} />
+              <SortTh label="Days Remaining"  col="daysUntil"   active={sortKey === "daysUntil"}   dir={sortDir} onSort={toggleSort} align="right" />
+              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Status</th>
+              <th className="px-4 py-3 pr-5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Suggested Action</th>
             </tr>
           </thead>
           <tbody>
-            {contacts.map((c, i) => {
+            {sorted.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                  No records match the selected filters
+                </td>
+              </tr>
+            ) : sorted.map((c, i) => {
               const status = getStatus(c.daysUntil, c.eventType);
               return (
                 <tr
                   key={`${c.email}|${c.eventType}|${i}`}
                   className="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors"
                 >
-                  <td className="px-4 py-3 pl-5 font-mono text-gray-500 dark:text-gray-400">
-                    {c.memberId || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-gray-800 dark:text-gray-200 font-medium">
-                    {c.fullName || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 dark:text-gray-500">
-                    {c.email}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {c.membership || "—"}
-                  </td>
+                  <td className="px-4 py-3 pl-5 font-mono text-gray-500 dark:text-gray-400">{c.memberId || "—"}</td>
+                  <td className="px-4 py-3 text-gray-800 dark:text-gray-200 font-medium">{c.fullName || "—"}</td>
+                  <td className="px-4 py-3 text-gray-400 dark:text-gray-500">{c.email}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{c.membership || "—"}</td>
                   <td className="px-4 py-3">
                     <span className="inline-block rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-300">
                       {triggerLabel(c.eventType)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400">
-                    {c.date}
-                  </td>
+                  <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400">{c.date}</td>
                   <td className="px-4 py-3 tabular-nums text-right">
-                    {c.daysUntil === 0 ? (
-                      <span className="text-hebe-red font-semibold">Today</span>
-                    ) : c.daysUntil > 0 ? (
-                      <span className="text-gray-600 dark:text-gray-300">{c.daysUntil}d</span>
-                    ) : (
-                      <span className="text-hebe-red font-medium">{Math.abs(c.daysUntil)}d ago</span>
-                    )}
+                    {c.daysUntil === 0
+                      ? <span className="text-hebe-red font-semibold">Today</span>
+                      : c.daysUntil > 0
+                      ? <span className="text-gray-600 dark:text-gray-300">{c.daysUntil}d</span>
+                      : <span className="text-hebe-red font-medium">{Math.abs(c.daysUntil)}d ago</span>}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[status]}`}>
