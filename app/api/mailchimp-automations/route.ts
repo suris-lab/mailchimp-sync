@@ -82,9 +82,17 @@ export async function GET(request: Request) {
           let status: AutomationStatus = "save";
           if (j.status === "published" || j.status === "sending") status = "sending";
           else if (j.status === "paused") status = "paused";
+          // Mailchimp CJ API uses varying field names across accounts/versions
+          const title: string =
+            (typeof j.name === "string" && j.name) ||
+            (typeof j.title === "string" && j.title) ||
+            j.settings?.title ||
+            j.settings?.name ||
+            j.workflow_title ||
+            `Journey ${j.id}`;
           return {
             id: `cj_${j.id}`,
-            title: j.name ?? j.id,
+            title,
             status,
             emails_sent: j.emails_sent ?? 0,
             subscriber_count: j.recipients?.recipient_count ?? 0,
