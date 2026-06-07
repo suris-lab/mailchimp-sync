@@ -21,23 +21,16 @@ export async function GET(request: Request) {
     const bust  = params.has("bust");
     const debug = params.has("debug");
 
-    if (!bust) {
-      const cached = await kvGet<MailchimpAutomationsResponse>(KV_KEY);
-      if (cached) return NextResponse.json(cached);
-    }
-
     const mc = await getMailchimp();
     const apiKey = process.env.MAILCHIMP_API_KEY!;
     const server = process.env.MAILCHIMP_SERVER_PREFIX!;
     const authHeader = `Basic ${Buffer.from(`anystring:${apiKey}`).toString("base64")}`;
 
-    // Classic automations (legacy editor)
-    const classicRes = await mc.automations.list({ count: 50 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const classicRaw: any[] = classicRes?.automations ?? [];
-
-    // Debug: return raw Mailchimp responses before any mapping
+    // Debug mode — must run before cache check so it always returns fresh raw data
     if (debug) {
+      const classicRes = await mc.automations.list({ count: 50 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const classicRaw: any[] = classicRes?.automations ?? [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let journeyDebug: any = null;
       try {
@@ -45,7 +38,8 @@ export async function GET(request: Request) {
           `https://${server}.api.mailchimp.com/3.0/customer-journeys/journeys?count=50`,
           { headers: { Authorization: authHeader } },
         );
-        journeyDebug = { status: jRes.status, body: await jRes.json() };
+        const body = await jRes.json();
+        journeyDebug = { status: jRes.status, body };
       } catch (e) {
         journeyDebug = { error: String(e) };
       }
@@ -54,6 +48,16 @@ export async function GET(request: Request) {
         customer_journeys: journeyDebug,
       });
     }
+
+    if (!bust) {
+      const cached = await kvGet<MailchimpAutomationsResponse>(KV_KEY);
+      if (cached) return NextResponse.json(cached);
+    }
+
+    // Classic automations (legacy editor)
+    const classicRes = await mc.automations.list({ count: 50 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const classicRaw: any[] = classicRes?.automations ?? [];
 
     const classicAutomations: MailchimpAutomation[] = classicRaw.map((a) => ({
       id: a.id,
