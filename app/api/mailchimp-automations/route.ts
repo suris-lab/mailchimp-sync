@@ -15,22 +15,36 @@ async function getMailchimp() {
   return mc;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractTitle(obj: any, fallback: string): string {
+  return (
+    (typeof obj?.name === "string" && obj.name) ||
+    (typeof obj?.title === "string" && obj.title) ||
+    (typeof obj?.journey_name === "string" && obj.journey_name) ||
+    (typeof obj?.workflow_title === "string" && obj.workflow_title) ||
+    obj?.settings?.title ||
+    obj?.settings?.name ||
+    fallback
+  );
+}
+
 export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
     const bust  = params.has("bust");
     const debug = params.has("debug");
 
-    const mc = await getMailchimp();
     const apiKey = process.env.MAILCHIMP_API_KEY!;
     const server = process.env.MAILCHIMP_SERVER_PREFIX!;
     const authHeader = `Basic ${Buffer.from(`anystring:${apiKey}`).toString("base64")}`;
+    const mc = await getMailchimp();
 
-    // Debug mode — must run before cache check so it always returns fresh raw data
+    // ── Debug mode: always bypasses cache, returns raw Mailchimp data ──────────
     if (debug) {
       const classicRes = await mc.automations.list({ count: 50 });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const classicRaw: any[] = classicRes?.automations ?? [];
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let journeyDebug: any = null;
       try {
@@ -39,16 +53,40 @@ export async function GET(request: Request) {
           { headers: { Authorization: authHeader } },
         );
         const body = await jRes.json();
-        journeyDebug = { status: jRes.status, body };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const firstJourney = body?.journeys?.[0] ?? null;
+        // Also fetch the individual detail for the first journey
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let firstDetail: any = null;
+        if (firstJourney?.id) {
+          const dRes = await fetch(
+            `https://${server}.api.mailchimp.com/3.0/customer-journeys/journeys/${firstJourney.id}`,
+            { headers: { Authorization: authHeader } },
+          );
+          firstDetail = await dRes.json();
+        }
+        journeyDebug = {
+          status: jRes.status,
+          list_first_journey_keys: firstJourney ? Object.keys(firstJourney) : [],
+          list_first_journey: firstJourney,
+          detail_first_journey_keys: firstDetail ? Object.keys(firstDetail) : [],
+          detail_first_journey: firstDetail,
+        };
       } catch (e) {
         journeyDebug = { error: String(e) };
       }
+
       return NextResponse.json({
-        classic: { total_items: classicRes?.total_items, count: classicRaw.length, sample: classicRaw.slice(0, 2) },
+        classic: {
+          total_items: classicRes?.total_items,
+          count: classicRaw.length,
+          sample: classicRaw.slice(0, 2),
+        },
         customer_journeys: journeyDebug,
       });
     }
 
+    // ── Normal path ────────────────────────────────────────────────────────────
     if (!bust) {
       const cached = await kvGet<MailchimpAutomationsResponse>(KV_KEY);
       if (cached) return NextResponse.json(cached);
@@ -71,7 +109,7 @@ export async function GET(request: Request) {
       workflow_type: a.trigger_settings?.workflow_type ?? "emailSeries",
     }));
 
-    // Customer Journeys (newer automation builder) — best-effort
+    // Customer Journeys (newer automation builder)
     let journeyAutomations: MailchimpAutomation[] = [];
     try {
       const jRes = await fetch(
@@ -82,36 +120,47 @@ export async function GET(request: Request) {
         const jData = await jRes.json();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const journeyRaw: any[] = jData?.journeys ?? [];
-        journeyAutomations = journeyRaw.map((j) => {
-          let status: AutomationStatus = "save";
-          if (j.status === "published" || j.status === "sending") status = "sending";
-          else if (j.status === "paused") status = "paused";
-          // Mailchimp CJ API uses varying field names across accounts/versions
-          const title: string =
-            (typeof j.name === "string" && j.name) ||
-            (typeof j.title === "string" && j.title) ||
-            j.settings?.title ||
-            j.settings?.name ||
-            j.workflow_title ||
-            `Journey ${j.id}`;
-          return {
-            id: `cj_${j.id}`,
-            title,
-            status,
-            emails_sent: j.emails_sent ?? 0,
-            subscriber_count: j.recipients?.recipient_count ?? 0,
-            open_rate: j.report_summary?.open_rate ?? null,
-            click_rate: j.report_summary?.click_rate ?? null,
-            start_time: j.created_at ?? null,
-            workflow_type: "customerJourney",
-          };
-        });
+
+        journeyAutomations = await Promise.all(
+          journeyRaw.map(async (j) => {
+            let status: AutomationStatus = "save";
+            if (j.status === "published" || j.status === "sending") status = "sending";
+            else if (j.status === "paused") status = "paused";
+
+            // Try name from list response; if missing, fetch individual detail
+            let title = extractTitle(j, "");
+            if (!title) {
+              try {
+                const dRes = await fetch(
+                  `https://${server}.api.mailchimp.com/3.0/customer-journeys/journeys/${j.id}`,
+                  { headers: { Authorization: authHeader } },
+                );
+                if (dRes.ok) {
+                  const detail = await dRes.json();
+                  title = extractTitle(detail, `Journey ${j.id}`);
+                }
+              } catch { /* ignore */ }
+              if (!title) title = `Journey ${j.id}`;
+            }
+
+            return {
+              id: `cj_${j.id}`,
+              title,
+              status,
+              emails_sent: j.emails_sent ?? 0,
+              subscriber_count: j.recipients?.recipient_count ?? 0,
+              open_rate: j.report_summary?.open_rate ?? null,
+              click_rate: j.report_summary?.click_rate ?? null,
+              start_time: j.created_at ?? null,
+              workflow_type: "customerJourney",
+            };
+          }),
+        );
       }
     } catch { /* endpoint may not exist for all accounts */ }
 
     const automations = [...classicAutomations, ...journeyAutomations];
 
-    // Sort: sending first, then paused, then drafts; secondary sort by emails_sent desc
     const ORDER: Record<string, number> = { sending: 0, paused: 1, save: 2 };
     automations.sort((a, b) => {
       const od = (ORDER[a.status] ?? 3) - (ORDER[b.status] ?? 3);
@@ -128,9 +177,6 @@ export async function GET(request: Request) {
     return NextResponse.json(payload);
   } catch (err) {
     console.error("[mailchimp-automations]", err);
-    return NextResponse.json(
-      { error: "Failed to fetch automations" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to fetch automations" }, { status: 500 });
   }
 }
