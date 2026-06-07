@@ -17,7 +17,9 @@ async function getMailchimp() {
 
 export async function GET(request: Request) {
   try {
-    const bust = new URL(request.url).searchParams.has("bust");
+    const params = new URL(request.url).searchParams;
+    const bust  = params.has("bust");
+    const debug = params.has("debug");
 
     if (!bust) {
       const cached = await kvGet<MailchimpAutomationsResponse>(KV_KEY);
@@ -33,6 +35,25 @@ export async function GET(request: Request) {
     const classicRes = await mc.automations.list({ count: 50 });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const classicRaw: any[] = classicRes?.automations ?? [];
+
+    // Debug: return raw Mailchimp responses before any mapping
+    if (debug) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let journeyDebug: any = null;
+      try {
+        const jRes = await fetch(
+          `https://${server}.api.mailchimp.com/3.0/customer-journeys/journeys?count=50`,
+          { headers: { Authorization: authHeader } },
+        );
+        journeyDebug = { status: jRes.status, body: await jRes.json() };
+      } catch (e) {
+        journeyDebug = { error: String(e) };
+      }
+      return NextResponse.json({
+        classic: { total_items: classicRes?.total_items, count: classicRaw.length, sample: classicRaw.slice(0, 2) },
+        customer_journeys: journeyDebug,
+      });
+    }
 
     const classicAutomations: MailchimpAutomation[] = classicRaw.map((a) => ({
       id: a.id,
