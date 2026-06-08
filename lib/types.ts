@@ -283,9 +283,9 @@ export interface MailchimpAutomation {
   title: string;
   status: AutomationStatus;
   emails_sent: number;
-  subscriber_count: number;
-  open_rate: number | null;   // 0–1
-  click_rate: number | null;  // 0–1
+  started: number | null;
+  in_progress: number | null;
+  completed: number | null;
   start_time: string | null;
   workflow_type: string;
 }

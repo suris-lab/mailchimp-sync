@@ -44,9 +44,9 @@ function workflowTypeLabel(type: string): string {
   return map[type] ?? type;
 }
 
-function fmtRate(r: number | null): string {
-  if (r === null) return "—";
-  return (r * 100).toFixed(1) + "%";
+function fmtCount(n: number | null): string {
+  if (n === null) return "—";
+  return n.toLocaleString();
 }
 
 function daysAgo(n: number) {
@@ -201,7 +201,7 @@ export default function DashboardPage() {
             {/* Column headers */}
             {!automationsLoading && automations.length > 0 && (
               <div className="px-5 py-2 grid grid-cols-[1fr_80px_80px_70px_70px_70px] gap-3 border-b border-gray-50 dark:border-gray-800/60">
-                {["Name", "Type", "Status", "Subscribers", "Open Rate", "Click Rate"].map((h, i) => (
+                {["Name", "Type", "Status", "Started", "In Progress", "Completed"].map((h, i) => (
                   <span
                     key={h}
                     className={`text-[9px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 ${i >= 3 ? "text-right" : ""}`}
@@ -252,17 +252,17 @@ export default function DashboardPage() {
                         {AUTO_LABEL[a.status]}
                       </span>
                     </span>
-                    {/* Subscribers */}
+                    {/* Started */}
                     <span className="text-[11px] tabular-nums text-gray-600 dark:text-gray-300 text-right">
-                      {a.subscriber_count > 0 ? a.subscriber_count.toLocaleString() : "—"}
+                      {fmtCount(a.started)}
                     </span>
-                    {/* Open rate */}
+                    {/* In Progress */}
                     <span className="text-[11px] tabular-nums text-gray-600 dark:text-gray-300 text-right">
-                      {fmtRate(a.open_rate)}
+                      {fmtCount(a.in_progress)}
                     </span>
-                    {/* Click rate */}
+                    {/* Completed */}
                     <span className="text-[11px] tabular-nums text-gray-600 dark:text-gray-300 text-right">
-                      {fmtRate(a.click_rate)}
+                      {fmtCount(a.completed)}
                     </span>
                   </div>
                 ))}
