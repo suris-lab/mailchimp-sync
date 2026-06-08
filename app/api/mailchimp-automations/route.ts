@@ -19,9 +19,9 @@ async function getMailchimp() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractTitle(obj: any, fallback: string): string {
   return (
+    (typeof obj?.journey_name === "string" && obj.journey_name) ||  // Mailchimp CJ API
     (typeof obj?.name === "string" && obj.name) ||
     (typeof obj?.title === "string" && obj.title) ||
-    (typeof obj?.journey_name === "string" && obj.journey_name) ||
     (typeof obj?.workflow_title === "string" && obj.workflow_title) ||
     obj?.settings?.title ||
     obj?.settings?.name ||
@@ -40,19 +40,23 @@ function extractStats(obj: any): { started: number | null; in_progress: number |
     return null;
   };
 
-  const r = obj?.reporting ?? obj?.stats ?? obj?.report_summary ?? {};
+  // Mailchimp CJ API: stats live under obj.stats with exact keys started/in_progress/completed
+  const r = obj?.stats ?? obj?.reporting ?? obj?.report_summary ?? {};
   return {
     started: pick([
+      r?.started,                                                    // Mailchimp CJ: stats.started
       obj?.contacts_total, obj?.total_contacts, obj?.contacts_entered,
       r?.total_contacts, r?.contacts_total, r?.entered,
     ]),
     in_progress: pick([
+      r?.in_progress,                                               // Mailchimp CJ: stats.in_progress
       obj?.contacts_active, obj?.active_contacts, obj?.contacts_in_progress,
       r?.active_contacts, r?.contacts_active, r?.active,
     ]),
     completed: pick([
+      r?.completed,                                                 // Mailchimp CJ: stats.completed
       obj?.contacts_completed, obj?.completed_contacts, obj?.contacts_exited,
-      r?.completed_contacts, r?.contacts_completed, r?.completed, r?.exited,
+      r?.completed_contacts, r?.contacts_completed, r?.exited,
     ]),
   };
 }
