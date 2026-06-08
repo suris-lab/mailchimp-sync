@@ -35,7 +35,7 @@ function GrowthTooltip({ active, payload, label, tc }: any) {
     >
       <p style={{ color: tc.tooltipMuted }}>{fmtAxisDate(label)}</p>
       <p style={{ color: "#eb0029" }} className="font-bold mt-0.5 text-sm">
-        +{value.toLocaleString()} new
+        +{value.toLocaleString()} members
       </p>
     </div>
   );
@@ -126,7 +126,7 @@ export function GrowthPanel({ stats, isLoading }: GrowthPanelProps) {
         {/* Left: KPI + delta */}
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-            New contacts — {windowDays} days
+            New members — {windowDays} days
           </p>
           <p className="text-4xl font-bold tabular-nums text-hebe-red leading-none">
             +{current.toLocaleString()}

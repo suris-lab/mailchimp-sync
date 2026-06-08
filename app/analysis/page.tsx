@@ -95,11 +95,11 @@ export default function AnalysisPage() {
           {syncOpen && <SyncKpiStrip stats={stats} isLoading={statsLoading} />}
         </section>
 
-        {/* ── Contact Growth ── */}
+        {/* ── Member Growth ── */}
         <section>
           <SectionHeader
-            title="Contact Growth"
-            subtitle="New contacts added via sync — sourced from sync run logs"
+            title="Member Growth"
+            subtitle="Active members added by date · excludes Non-Members and Resigned"
           />
           <GrowthPanel stats={growthStats} isLoading={growthLoading} />
         </section>

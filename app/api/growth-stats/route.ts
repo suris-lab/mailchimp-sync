@@ -1,13 +1,47 @@
 import { NextResponse } from "next/server";
-import { kvGet, kvLrange } from "@/lib/kv";
-import type { SyncLog, GrowthStats } from "@/lib/types";
+import { kvGet, kvSet } from "@/lib/kv";
+import { fetchSheetContacts } from "@/tools/google-sheets";
+import type { GrowthStats } from "@/lib/types";
 
-export async function GET() {
-  const ids = await kvLrange("sync:log_ids", 0, 999);
-  const logs = await Promise.all(ids.map((id) => kvGet<SyncLog>(`sync:log:${id}`)));
-  const validLogs = logs.filter((l): l is SyncLog => l !== null && l.status !== "skipped");
+const KV_KEY = "sync:member_growth";
+const CACHE_TTL = 3600; // 1 hour
 
-  // Build a bucket for every day in the past 120 days (current 60d + previous 60d for comparison)
+// Parse "M/D/YYYY", "MM/DD/YYYY", or ISO prefix → "YYYY-MM-DD". Returns null on bad input.
+function toISODate(raw: string): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  // ISO format
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+  // M/D/YYYY
+  const parts = trimmed.split("/");
+  if (parts.length === 3) {
+    const [m, d, y] = parts.map(Number);
+    if (m && d && y && y > 1900) {
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+  }
+  return null;
+}
+
+export async function GET(request: Request) {
+  const bust = new URL(request.url).searchParams.has("bust");
+
+  if (!bust) {
+    const cached = await kvGet<GrowthStats>(KV_KEY);
+    if (cached) return NextResponse.json(cached);
+  }
+
+  const contacts = await fetchSheetContacts();
+
+  // Qualifying members: membership contains "Member", excludes "Non-Member", excludes Resigned
+  const members = contacts.filter((c) => {
+    const m = c.membership ?? "";
+    if (!m.includes("Member") || m.includes("Non-Member")) return false;
+    if (c.membershipModifier === "Member_Resigned") return false;
+    return true;
+  });
+
+  // Build a bucket for every day in the past 120 days
   const buckets: Record<string, number> = {};
   const today = new Date();
   for (let i = 0; i < 120; i++) {
@@ -16,10 +50,10 @@ export async function GET() {
     buckets[d.toISOString().slice(0, 10)] = 0;
   }
 
-  for (const log of validLogs) {
-    const date = log.timestamp.slice(0, 10);
-    if (date in buckets) {
-      buckets[date] += log.new_added;
+  for (const c of members) {
+    const date = toISODate(c.createdAt);
+    if (date && date in buckets) {
+      buckets[date]++;
     }
   }
 
@@ -28,16 +62,15 @@ export async function GET() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, value]) => ({ date, value }));
 
-  // dailyNew has 120 entries; last 60 = current, first 60 = previous
-  const current60 = dailyNew.slice(60);   // days 0–59 ago (most recent)
-  const prev60    = dailyNew.slice(0, 60); // days 60–119 ago
+  const current60 = dailyNew.slice(60);
+  const prev60    = dailyNew.slice(0, 60);
 
   const last60Days = current60.reduce((s, d) => s + d.value, 0);
   const prev60Days = prev60.reduce((s, d) => s + d.value, 0);
-
-  const last30Days = current60.slice(30).reduce((s, d) => s + d.value, 0); // last 30 of current 60
-  const prev30Days = current60.slice(0, 30).reduce((s, d) => s + d.value, 0); // the 30 before that
+  const last30Days = current60.slice(30).reduce((s, d) => s + d.value, 0);
+  const prev30Days = current60.slice(0, 30).reduce((s, d) => s + d.value, 0);
 
   const stats: GrowthStats = { last30Days, last60Days, prev30Days, prev60Days, dailyNew };
+  await kvSet(KV_KEY, stats, CACHE_TTL);
   return NextResponse.json(stats);
 }
