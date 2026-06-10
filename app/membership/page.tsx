@@ -47,6 +47,20 @@ function triggerLabel(eventType: string): string {
   return map[eventType] ?? eventType;
 }
 
+// Filter chips use a shorter code-style label; table rows use triggerLabel (semantic names)
+function triggerChipLabel(eventType: string): string {
+  const map: Record<string, string> = {
+    "Birthday":      "Birthday",
+    "18th Birthday": "18BDAY",
+    "21st Birthday": "21BDAY",
+    "25th Birthday": "25BDAY",
+    "30th Birthday": "31BDAY",
+    "SA Graduation": "SA_GRADDATE",
+    "Term Expiry":   "T_GRADDATE",
+  };
+  return map[eventType] ?? eventType;
+}
+
 const TIER_DISPLAY: Record<string, string> = {
   "Member_Cadet":           "Cadet",
   "Member_Junior":          "Junior",
@@ -240,7 +254,7 @@ const TIER_ORDER = [
 
 const TRIGGER_ORDER = [
   "Birthday",
-  "Cadet Conversion",
+  "18BDAY",
   "21BDAY",
   "25BDAY",
   "31BDAY",
@@ -316,7 +330,7 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
   );
   const allTriggers = useMemo(
     () =>
-      Array.from(new Set(contacts.map((c) => triggerLabel(c.eventType)))).sort((a, b) => {
+      Array.from(new Set(contacts.map((c) => triggerChipLabel(c.eventType)))).sort((a, b) => {
         const ai = TRIGGER_ORDER.indexOf(a);
         const bi = TRIGGER_ORDER.indexOf(b);
         if (ai === -1 && bi === -1) return a.localeCompare(b);
@@ -330,7 +344,7 @@ function ActionListTable({ contacts }: { contacts: MembershipContact[] }) {
   const filtered = useMemo(() => {
     let rows = contacts;
     if (tierFilter)    rows = rows.filter((c) => (c.membership || "—") === tierFilter);
-    if (triggerFilter) rows = rows.filter((c) => triggerLabel(c.eventType) === triggerFilter);
+    if (triggerFilter) rows = rows.filter((c) => triggerChipLabel(c.eventType) === triggerFilter);
     if (statusFilter)  rows = rows.filter((c) => getStatus(c.daysUntil, c.eventType) === statusFilter);
     if (daysFilter) {
       const max = Number(daysFilter);
