@@ -296,6 +296,93 @@ export interface MailchimpAutomationsResponse {
   computed_at: string;
 }
 
+// ── Survey Insights 2026 ───────────────────────────────────────────────────────
+
+export interface SurveyAreaStat {
+  label: string;
+  satisfaction: number;
+  importance: number;                              // normalised 0–1
+  importance_source: "direct" | "priority_frequency";
+  count: number;
+}
+
+export interface SurveySegmentStat {
+  count: number;
+  avg_satisfaction: number;
+  nps_score: number;
+  top_priorities: string[];
+  low_sample: boolean;
+}
+
+export interface SurveyActionItem {
+  priority_rank: number;
+  priority_score: number;
+  issue: string;
+  evidence: string;
+  recommended_action: string;
+  owner: string;
+  timing: "0–3m" | "3–6m" | "6–12m" | "Long-term";
+}
+
+export interface CommentTheme {
+  theme: string;
+  count: number;
+  sentiment: { positive: number; neutral: number; negative: number };
+  examples: string[];
+}
+
+export interface SurveyDataQuality {
+  r1_rows: number;
+  r2_rows: number;
+  matched_complete: number;
+  unmatched_r1: number;
+  unmatched_r2: number;
+  join_method: string;
+  missing_fields: string[];
+}
+
+export interface SurveyInsights {
+  computed_at: string;
+  total_responses: number;
+  data_quality: SurveyDataQuality;
+
+  avg_satisfaction: number;
+  satisfaction_dist: Record<string, number>;
+  pct_satisfied: number;
+  pct_dissatisfied: number;
+
+  area_stats: SurveyAreaStat[];
+
+  nps_score: number;
+  avg_nps_raw: number;
+  nps_dist: { promoters: number; passives: number; detractors: number };
+
+  by_membership_category: Record<string, SurveySegmentStat>;
+  by_tenure: Record<string, SurveySegmentStat>;
+  by_visit_freq: Record<string, SurveySegmentStat>;
+  by_usage_type: Record<string, SurveySegmentStat>;
+  by_nps_group: Record<string, SurveySegmentStat>;
+
+  top_priorities: { label: string; count: number; pct: number }[];
+
+  comm_channels: { label: string; count: number; pct: number }[];
+  comm_satisfaction: number;
+  website_rating: number;
+  membership_value: number;
+
+  tenure_dist: Record<string, number>;
+  visit_freq_dist: Record<string, number>;
+  usage_type_dist: Record<string, number>;
+  membership_category_dist: Record<string, number>;
+  improvement_trend_dist: Record<string, number>;
+
+  comment_themes: CommentTheme[];
+  comment_count: number;
+  comments: { segment?: string; text: string }[];
+
+  action_items: SurveyActionItem[];
+}
+
 // ── Membership Lifecycle ───────────────────────────────────────────────────────
 
 export interface MembershipContact {

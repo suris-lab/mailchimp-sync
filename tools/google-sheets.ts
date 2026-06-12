@@ -115,6 +115,26 @@ export async function readSourceSheet(
   return contacts;
 }
 
+// Generic sheet reader — returns all data rows as objects keyed by header name.
+// Reads any sheet by ID + range; never touches the CRM sheet (SHEET_ID env var).
+export async function readRawSheet(
+  sheetId: string,
+  range: string,
+): Promise<Record<string, string>[]> {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range });
+  const rows = res.data.values;
+  if (!rows || rows.length < 2) return [];
+  const headers = rows[0].map((h: unknown) => String(h).trim());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.slice(1).map((row: any[]) => {
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => { obj[h] = String(row[i] ?? "").trim(); });
+    return obj;
+  });
+}
+
 // Batch-update specific cells in one Sheets API call.
 // Ranges must be in A1 notation e.g. "Sheet1!G5"
 export async function batchUpdateCells(
