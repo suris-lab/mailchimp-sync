@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
@@ -432,9 +432,10 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
               <ReferenceLine x={midSat} stroke="#d1d5db" strokeDasharray="4 4" />
               <ReferenceLine y={midImp} stroke="#d1d5db" strokeDasharray="4 4" />
               <Tooltip content={<MatrixTooltip />} />
-              <Scatter data={areas} shape={(props) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const { cx, cy, payload } = props as any;
+              <Scatter data={areas} shape={(props: any) => {
+                const { cx, cy, payload } = props;
+                // Guard: recharts may invoke the shape fn before layout is ready
+                if (cx == null || cy == null || !payload?.label) return <g />;
                 const color = quadrantColor(payload as SurveyAreaStat);
                 return (
                   <g>
@@ -740,7 +741,10 @@ function ProfileSection({ data }: { data: SurveyInsights }) {
                     {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
                   <Legend
-                    formatter={(value: string) => <span style={{ fontSize: 9, color: DARK_GREY }}>{value.length > 22 ? value.slice(0, 20) + "…" : value}</span>}
+                    formatter={(value: unknown) => {
+                      const s = String(value ?? "");
+                      return <span style={{ fontSize: 9, color: DARK_GREY }}>{s.length > 22 ? s.slice(0, 20) + "…" : s}</span>;
+                    }}
                     iconSize={8}
                   />
                   <Tooltip formatter={(v, name) => [v, name]} />
@@ -815,7 +819,7 @@ function ActionSection({ data }: { data: SurveyInsights }) {
   );
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
+// ── Empty / Error states ──────────────────────────────────────────────────────
 
 function EmptyState({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
   return (
@@ -835,17 +839,42 @@ function EmptyState({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
   );
 }
 
+function ErrorState({ message, onRefresh, refreshing }: { message: string; onRefresh: () => void; refreshing: boolean }) {
+  return (
+    <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-12 text-center">
+      <AlertTriangle size={20} className="text-amber-500 mx-auto mb-3" />
+      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Could not load survey data</p>
+      <p className="text-xs text-gray-400 mt-1 mb-4">{message}</p>
+      <button
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 dark:border-amber-700 px-3 py-1.5
+                   text-xs text-gray-600 dark:text-gray-400 hover:text-hebe-red hover:border-hebe-red transition-colors disabled:opacity-50"
+      >
+        <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
+        Retry
+      </button>
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SurveyPage() {
-  const { data, isLoading, refresh } = useSurveyInsights();
+  const { data, error, isLoading, refresh } = useSurveyInsights();
   const [refreshing, setRefreshing] = useState(false);
+  // Avoid hydration mismatch: don't render charts until client is mounted
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   async function handleRefresh() {
     setRefreshing(true);
     await refresh();
     setRefreshing(false);
   }
+
+  // data has a valid shape only when total_responses is a number
+  const dataReady = !!data && typeof data.total_responses === "number";
 
   return (
     <div className="min-h-full bg-hebe-cream dark:bg-gray-950">
@@ -876,25 +905,31 @@ export default function SurveyPage() {
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
 
-        {isLoading ? (
+        {!mounted || isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-32 rounded-2xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
             ))}
           </div>
-        ) : !data || data.total_responses === 0 ? (
+        ) : error ? (
+          <ErrorState
+            message={error instanceof Error ? error.message : "Unable to reach the survey data API"}
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+          />
+        ) : !dataReady || data!.total_responses === 0 ? (
           <EmptyState onRefresh={handleRefresh} refreshing={refreshing} />
         ) : (
           <>
-            <ExecutiveSummary data={data} onRefresh={handleRefresh} refreshing={refreshing} />
-            <SatisfactionSection data={data} />
-            <NpsSection data={data} />
-            <MatrixSection data={data} />
-            <SegmentSection data={data} />
-            <PrioritySection data={data} />
-            <CommentSection data={data} />
-            <ProfileSection data={data} />
-            <ActionSection data={data} />
+            <ExecutiveSummary data={data!} onRefresh={handleRefresh} refreshing={refreshing} />
+            <SatisfactionSection data={data!} />
+            <NpsSection data={data!} />
+            <MatrixSection data={data!} />
+            <SegmentSection data={data!} />
+            <PrioritySection data={data!} />
+            <CommentSection data={data!} />
+            <ProfileSection data={data!} />
+            <ActionSection data={data!} />
           </>
         )}
       </main>

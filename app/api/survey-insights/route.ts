@@ -530,13 +530,19 @@ export async function GET(request: Request) {
     const bust  = params.has("bust");
     const debug = params.has("debug");
 
-    // Read both sheets in parallel
+    // Cache check FIRST — skip sheets read entirely on a cache hit
+    if (!bust && !debug) {
+      const cached = await kvGet<SurveyInsights>(KV_KEY);
+      if (cached) return NextResponse.json(cached);
+    }
+
+    // Read both sheets in parallel (only when cache misses or bust/debug)
     const [r1Rows, r2Rows] = await Promise.all([
       readRawSheet(SURVEY_SHEET_ID, "Response!A:AZ"),
       readRawSheet(SURVEY_SHEET_ID, "Response2!A:AZ"),
     ]);
 
-    // Debug: return raw structure before any cache check
+    // Debug: return raw structure
     if (debug) {
       const { merged, unmatched_r1, unmatched_r2 } = mergeSheets(r1Rows, r2Rows);
       return NextResponse.json({
@@ -549,12 +555,6 @@ export async function GET(request: Request) {
           unmatched_r2,
         },
       });
-    }
-
-    // Cache check
-    if (!bust) {
-      const cached = await kvGet<SurveyInsights>(KV_KEY);
-      if (cached) return NextResponse.json(cached);
     }
 
     const { merged, unmatched_r1, unmatched_r2 } = mergeSheets(r1Rows, r2Rows);
