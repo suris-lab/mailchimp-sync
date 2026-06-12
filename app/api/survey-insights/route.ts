@@ -41,7 +41,7 @@ const R1 = {
   priority_improve:     "16. Where should the Club prioritise improvement over the next 12 months?",
   priority_other:       "16a. Please specify 請註明",
   highest_priority:     "17. Of the areas you selected above, which ONE should be the highest priority and why?",
-  comm_satisfaction:    "18. How satisfied are you with the Club's communication with members?",
+  comm_satisfaction:    "18. How satisfied are you with the Club’s communication with members?",
   comm_channels:        "19. Which channels do you usually use to receive Club information?",
   comm_channels_other:  "19a. Please specify 請註明",
   comm_info_wanted:     "20. What type of Club information would you like to receive more clearly or more regularly?",
@@ -69,13 +69,15 @@ const NOT_APPLICABLE = [
   "Not applicable / I do not use this", "Not Applicable", "N/A", "n/a",
 ];
 
-function parseRating(raw: string): number | null {
+function parseRating(raw: string | undefined): number | null {
+  if (!raw) return null;
   const n = Number(raw);
   if (!isNaN(n) && n >= 1 && n <= 5) return n;
   return RATING_TEXT_MAP[raw.trim()] ?? null;
 }
 
-function parseNps(raw: string): number | null {
+function parseNps(raw: string | undefined): number | null {
+  if (!raw) return null;
   const n = Number(raw);
   if (!isNaN(n) && n >= 0 && n <= 10) return n;
   return null;

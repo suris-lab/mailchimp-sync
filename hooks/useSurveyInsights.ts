@@ -5,7 +5,10 @@ import type { SurveyInsights } from "@/lib/types";
 
 const fetcher = async (url: string) => {
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`Survey API ${r.status}`);
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    throw new Error(body.error ?? `Survey API ${r.status}`);
+  }
   return r.json();
 };
 
