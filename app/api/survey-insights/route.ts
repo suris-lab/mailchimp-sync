@@ -532,8 +532,12 @@ export async function GET(request: Request) {
 
     // Cache check FIRST — skip sheets read entirely on a cache hit
     if (!bust && !debug) {
-      const cached = await kvGet<SurveyInsights>(KV_KEY);
-      if (cached) return NextResponse.json(cached);
+      try {
+        const cached = await kvGet<SurveyInsights>(KV_KEY);
+        if (cached) return NextResponse.json(cached);
+      } catch {
+        // KV unavailable — fall through to fresh computation
+      }
     }
 
     // Read both sheets in parallel (only when cache misses or bust/debug)
@@ -559,10 +563,11 @@ export async function GET(request: Request) {
 
     const { merged, unmatched_r1, unmatched_r2 } = mergeSheets(r1Rows, r2Rows);
     const payload = computeInsights(merged, unmatched_r1, unmatched_r2, r1Rows.length, r2Rows.length);
-    await kvSet(KV_KEY, payload, CACHE_TTL);
+    try { await kvSet(KV_KEY, payload, CACHE_TTL); } catch { /* non-fatal */ }
     return NextResponse.json(payload);
   } catch (err) {
     console.error("[survey-insights]", err);
-    return NextResponse.json({ error: "Failed to compute survey insights" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
