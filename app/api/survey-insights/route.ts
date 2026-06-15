@@ -406,8 +406,9 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
         if (isValue) return parseRating(r[R2.membership_value]);
         return null;
       }).filter((v): v is number => v !== null);
-      // Importance: how often this area appears in Q15/Q16 (single filter, no double-count)
-      const keyword = isComms ? "commun" : "value";
+      // Importance: how often this area appears in Q15/Q16
+      // "membership value" is specific enough to avoid matching "F&B Pricing / Value"
+      const keyword = isComms ? "commun" : "membership value";
       const impFreq = Object.entries(priFreq)
         .filter(([k]) => k.toLowerCase().includes(keyword))
         .reduce((s, [, v]) => s + v, 0);
@@ -431,11 +432,29 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
         }
       }
     }
-    // Match area to priority freq using loose keyword match
-    const areaLower = areaLabel.toLowerCase();
-    const impFreq   = Object.entries(priFreq)
-      .filter(([k]) => k.toLowerCase().includes(areaLower.split(" ")[0]))
-      .reduce((s, [, v]) => s + v, 0);
+    // Match area to priority freq — exact label first, then specific keyword fallback.
+    // First-word-only matching caused collisions (e.g. "f&b" matched both F&B areas).
+    const exactImpFreq = priFreq[areaLabel] ?? 0;
+    const impFreq = exactImpFreq > 0 ? exactImpFreq : (() => {
+      const KW: Record<string, string> = {
+        "F&B Quality":          "f&b quality",
+        "F&B Pricing / Value":  "f&b pric",
+        "Clubhouse Facilities": "clubhouse",
+        "Cleanliness":          "cleanli",
+        "Community Atmosphere": "community",
+        "Family Activities":    "family",
+        "Car Parking":          "parking",
+        "Marine Facilities":    "marine",
+        "Sailing Programmes":   "sailing",
+        "Racing & Regattas":    "racing",
+        "Social Events":        "social event",
+        "Member Service":       "member service",
+      };
+      const kw = KW[areaLabel] ?? areaLabel.toLowerCase();
+      return Object.entries(priFreq)
+        .filter(([k]) => k.toLowerCase().includes(kw))
+        .reduce((s, [, v]) => s + v, 0);
+    })();
 
     area_stats.push({
       label: areaLabel,

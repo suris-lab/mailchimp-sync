@@ -488,7 +488,9 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
 
 function MatrixSection({ data }: { data: SurveyInsights }) {
   const [hovered, setHovered] = useState<number | null>(null);
-  const areas = data.area_stats.filter((a) => a.satisfaction > 0 || a.importance > 0);
+  // Only plot areas with actual satisfaction data — count=0 means avg()=0 which lands
+  // falsely at the far-left edge of the chart as if satisfaction were 0/5.
+  const areas = data.area_stats.filter((a) => a.count > 0);
   const midSat = 3.0;
   const midImp = 0.5;
 
