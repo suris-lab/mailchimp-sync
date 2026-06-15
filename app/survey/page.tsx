@@ -362,8 +362,10 @@ function NpsSection({ data }: { data: SurveyInsights }) {
 // ── Section 4: Communications ─────────────────────────────────────────────────
 
 function CommunicationsSection({ data }: { data: SurveyInsights }) {
-  const maxCh   = data.comm_channels[0]?.count   || 1;
-  const maxInfo = data.comm_info_wanted[0]?.count || 1;
+  const channels    = data.comm_channels    ?? [];
+  const infoWanted  = data.comm_info_wanted ?? [];
+  const maxCh   = channels[0]?.count   || 1;
+  const maxInfo = infoWanted[0]?.count || 1;
 
   return (
     <section>
@@ -397,11 +399,11 @@ function CommunicationsSection({ data }: { data: SurveyInsights }) {
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
             Preferred Channels (Q19)
           </p>
-          {data.comm_channels.length === 0 ? (
+          {channels.length === 0 ? (
             <p className="text-[10px] text-gray-400">No responses yet</p>
           ) : (
             <div className="space-y-1.5">
-              {data.comm_channels.map(({ label, count, pct }) => (
+              {channels.map(({ label, count, pct }) => (
                 <div key={label}>
                   <div className="flex justify-between mb-0.5">
                     <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[72%]">{label}</span>
@@ -421,11 +423,11 @@ function CommunicationsSection({ data }: { data: SurveyInsights }) {
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
             Content Members Want More Of (Q20)
           </p>
-          {data.comm_info_wanted.length === 0 ? (
+          {infoWanted.length === 0 ? (
             <p className="text-[10px] text-gray-400">No responses yet</p>
           ) : (
             <div className="space-y-2">
-              {data.comm_info_wanted.map(({ label, count, pct }, i) => (
+              {infoWanted.map(({ label, count, pct }, i) => (
                 <div key={label} className="flex items-center gap-3">
                   <span className={`text-[10px] font-bold tabular-nums w-4 shrink-0 ${i < 3 ? "text-hebe-red" : "text-gray-400"}`}>
                     {i + 1}
