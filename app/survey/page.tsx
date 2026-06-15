@@ -541,10 +541,10 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
         ) : (
           <>
             {/* Pure SVG chart — numbered dots, labels in grid below — no in-chart text overlap */}
+            <div className="overflow-hidden">
             <svg
               viewBox={`0 0 ${W} ${H}`}
               className="w-full h-auto"
-              style={{ overflow: "visible" }}
               aria-label="Importance vs Satisfaction scatter matrix"
             >
               {/* Quadrant background fills — colour identifies quadrant without needing text labels */}
@@ -608,6 +608,7 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
                 );
               })}
             </svg>
+            </div>
 
             {/* Numbered legend grid — full area names, no overlap possible */}
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800
