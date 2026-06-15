@@ -406,9 +406,11 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
         if (isValue) return parseRating(r[R2.membership_value]);
         return null;
       }).filter((v): v is number => v !== null);
-      // Importance: how often this area appears in Q15/Q16
-      const priKey = isComms ? "Club communications" : "Membership value for money";
-      const impFreq = (priFreq[priKey] ?? 0) + Object.entries(priFreq).filter(([k]) => k.toLowerCase().includes(isComms ? "commun" : "value")).reduce((s, [, v]) => s + v, 0);
+      // Importance: how often this area appears in Q15/Q16 (single filter, no double-count)
+      const keyword = isComms ? "commun" : "value";
+      const impFreq = Object.entries(priFreq)
+        .filter(([k]) => k.toLowerCase().includes(keyword))
+        .reduce((s, [, v]) => s + v, 0);
       area_stats.push({
         label: areaLabel,
         satisfaction: avg(vals),
@@ -443,6 +445,11 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
       count: allVals.filter((v) => v !== null).length,
     });
   }
+
+  // Re-normalise importance so the most-selected area = 1.0 (prevents >100% on chart).
+  // Raw impFreqs can exceed maxPriFreq when a keyword matches multiple Q15/Q16 options.
+  const maxAreaImp = Math.max(...area_stats.map((a) => a.importance), 0.001);
+  for (const a of area_stats) a.importance = a.importance / maxAreaImp;
 
   // ── Segment analysis ──────────────────────────────────────────────────────
   const by_membership_category = buildSegmentStats(merged, R1.membership_category);
