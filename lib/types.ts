@@ -369,6 +369,12 @@ export interface SurveyInsights {
   comm_satisfaction: number;
   website_rating: number;
   membership_value: number;
+  referral_aware: { yes: number; no: number; pct_aware: number };
+  avg_referral_attractive: number;
+  referral_attractive_dist: Record<string, number>;
+  avg_privilege_value: number;
+  privilege_value_dist: Record<string, number>;
+  privilege_not_aware_n: number;
 
   tenure_dist: Record<string, number>;
   visit_freq_dist: Record<string, number>;
@@ -378,7 +384,7 @@ export interface SurveyInsights {
 
   comment_themes: CommentTheme[];
   comment_count: number;
-  comments: { segment?: string; text: string }[];
+  comments: { segment?: string; lang?: "en" | "zh"; text: string }[];
 
   action_items: SurveyActionItem[];
 }

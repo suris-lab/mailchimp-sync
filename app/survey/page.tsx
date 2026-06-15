@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, RefreshCw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, CartesianGrid, ReferenceLine, Cell,
+  ReferenceLine, Cell,
   PieChart, Pie, Legend,
 } from "recharts";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -359,35 +359,157 @@ function NpsSection({ data }: { data: SurveyInsights }) {
   );
 }
 
-// ── Section 4: Importance vs Satisfaction Matrix ──────────────────────────────
+// ── Section 4: Membership & Benefits ─────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function MatrixTooltip({ active, payload }: any) {
-  if (!active || !payload?.length) return null;
-  const d: SurveyAreaStat = payload[0]?.payload;
+const PRIVILEGE_ORDER = ["Not valuable", "Slightly valuable", "Moderately valuable", "Valuable", "Very valuable"];
+
+function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
+  const { referral_aware, avg_referral_attractive, referral_attractive_dist, avg_privilege_value, privilege_value_dist, privilege_not_aware_n } = data;
+  const totalReferral = referral_aware.yes + referral_aware.no || 1;
+  const maxPriv = Math.max(...Object.values(privilege_value_dist), 1);
+  const attrEntries = Object.entries(referral_attractive_dist).sort((a, b) => b[1] - a[1]);
+  const maxAttr = Math.max(...attrEntries.map(([, n]) => n), 1);
+
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs shadow-lg">
-      <p className="font-semibold text-gray-900 dark:text-white">{d.label}</p>
-      <p className="text-gray-500">Satisfaction: {fmt1(d.satisfaction)}/5</p>
-      <p className="text-gray-500">Importance: {fmtPct(d.importance * 100)}</p>
-      {d.count < 10 && <p className="text-amber-500 mt-1">⚠ Low sample (n={d.count})</p>}
-    </div>
+    <section>
+      <SectionTitle
+        label="Membership & Benefits"
+        sub="Referral programme awareness (Q23) · Attractiveness (Q23a) · Member privilege value (Q25)"
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Referral awareness */}
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            Referral Programme Awareness
+          </p>
+          <div className="flex items-end gap-4 mb-4">
+            <div>
+              <p className="text-5xl font-black tabular-nums" style={{ color: referral_aware.pct_aware >= 50 ? "#16a34a" : HEBE_RED }}>
+                {referral_aware.pct_aware}%
+              </p>
+              <p className="text-[10px] text-gray-400 mt-1">aware of the programme</p>
+            </div>
+            <div className="text-xs text-gray-400 pb-1">
+              <p>{referral_aware.yes} yes · {referral_aware.no} no</p>
+              {(referral_aware.yes + referral_aware.no) === 0 && (
+                <p className="text-amber-500 mt-1">No responses yet</p>
+              )}
+            </div>
+          </div>
+          {/* Yes / No split bar */}
+          <div className="flex h-5 rounded-lg overflow-hidden">
+            <div style={{ flex: referral_aware.yes, backgroundColor: "#16a34a", minWidth: referral_aware.yes > 0 ? 2 : 0 }}
+              title={`${referral_aware.yes} Yes`} />
+            <div style={{ flex: referral_aware.no, backgroundColor: HEBE_RED, minWidth: referral_aware.no > 0 ? 2 : 0 }}
+              title={`${referral_aware.no} No`} />
+          </div>
+          <div className="flex justify-between mt-1.5 text-[9px] text-gray-400">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />Yes</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: HEBE_RED }} />No</span>
+          </div>
+          {/* Q23a attractiveness rating — only shown to members who said Yes */}
+          <div className="mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+              Attractiveness Rating (Q23a · Yes respondents only)
+            </p>
+            {attrEntries.length === 0 ? (
+              <p className="text-[10px] text-amber-500">No responses yet</p>
+            ) : (
+              <div className="space-y-1.5">
+                {attrEntries.map(([label, count]) => (
+                  <div key={label}>
+                    <div className="flex justify-between mb-0.5">
+                      <span className="text-[10px] text-gray-600 dark:text-gray-400">{label}</span>
+                      <span className="text-[10px] tabular-nums text-gray-400">{count}</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${(count / maxAttr) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+                {avg_referral_attractive > 0 && (
+                  <p className="text-[10px] text-gray-400 mt-1">Avg: {avg_referral_attractive.toFixed(1)} / 5</p>
+                )}
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 mt-2">
+              Q24 (open): improvement comments included in Comment Themes.
+            </p>
+          </div>
+        </Card>
+
+        {/* Privilege value */}
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            Member Privilege Value
+          </p>
+          <div className="flex items-end gap-3 mb-4">
+            <div>
+              <p className="text-5xl font-black tabular-nums" style={{ color: satColor(avg_privilege_value) }}>
+                {avg_privilege_value > 0 ? fmt1(avg_privilege_value) : "—"}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-1">out of 5</p>
+            </div>
+            {privilege_not_aware_n > 0 && (
+              <p className="text-[10px] text-gray-400 pb-1">{privilege_not_aware_n} not aware of privileges (excluded)</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            {PRIVILEGE_ORDER.map((label, idx) => {
+              const count = privilege_value_dist[label] ?? 0;
+              const score = idx + 1;
+              return (
+                <div key={label}>
+                  <div className="flex justify-between mb-0.5">
+                    <span className="text-[10px] text-gray-600 dark:text-gray-400">{label}</span>
+                    <span className="text-[10px] tabular-nums text-gray-400">{count}</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div
+                      className="h-1.5 rounded-full"
+                      style={{
+                        width: `${(count / maxPriv) * 100}%`,
+                        backgroundColor: score >= 4 ? "#16a34a" : score === 3 ? "#ca8a04" : HEBE_RED,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+    </section>
   );
 }
 
+// ── Section 5 (was 4): Importance vs Satisfaction Matrix ──────────────────────
+
 function MatrixSection({ data }: { data: SurveyInsights }) {
+  const [hovered, setHovered] = useState<number | null>(null);
   const areas = data.area_stats.filter((a) => a.satisfaction > 0 || a.importance > 0);
   const midSat = 3.0;
   const midImp = 0.5;
 
-  const quadrantColor = (a: SurveyAreaStat) => {
-    const hi = a.satisfaction >= midSat;
+  const quadrantColor = (a: SurveyAreaStat): string => {
+    const hiSat = a.satisfaction >= midSat;
     const hiImp = a.importance >= midImp;
-    if (hiImp && !hi) return HEBE_RED;      // Immediate priority
-    if (hiImp && hi)  return "#16a34a";     // Protect & maintain
-    if (!hiImp && hi) return "#6b7280";     // Nice to have
-    return "#9ca3af";                       // Lower priority
+    if (hiImp && !hiSat) return HEBE_RED;
+    if (hiImp && hiSat)  return "#16a34a";
+    if (!hiImp && hiSat) return "#6b7280";
+    return "#9ca3af";
   };
+
+  // SVG coordinate system — viewBox makes this fully responsive, no overflow
+  const W = 560, H = 320;
+  const PAD = { top: 24, right: 20, bottom: 40, left: 48 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const toX = (sat: number) => PAD.left + (sat / 5) * cW;
+  const toY = (imp: number) => PAD.top + (1 - imp) * cH;
+  const refX = toX(midSat);
+  const refY = toY(midImp);
 
   return (
     <section>
@@ -396,12 +518,13 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
         sub="Importance = priority selection frequency (Q15+Q16) · Satisfaction = sub-category avg"
       />
       <Card>
+        {/* Quadrant legend */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 text-[10px]">
           {[
-            { color: HEBE_RED,   label: "Immediate Priority",    desc: "High importance · Low satisfaction" },
-            { color: "#16a34a",  label: "Protect & Maintain",   desc: "High importance · High satisfaction" },
-            { color: "#6b7280",  label: "Nice to Have",          desc: "Low importance · High satisfaction" },
-            { color: "#9ca3af",  label: "Lower Priority",        desc: "Low importance · Low satisfaction" },
+            { color: HEBE_RED,   label: "Immediate Priority",  desc: "High importance · Low satisfaction"  },
+            { color: "#16a34a",  label: "Protect & Maintain",  desc: "High importance · High satisfaction" },
+            { color: "#6b7280",  label: "Nice to Have",        desc: "Low importance · High satisfaction"  },
+            { color: "#9ca3af",  label: "Lower Priority",      desc: "Low importance · Low satisfaction"   },
           ].map(({ color, label, desc }) => (
             <div key={label} className="flex items-start gap-1.5">
               <span className="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -412,44 +535,113 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
             </div>
           ))}
         </div>
+
         {areas.length === 0 ? (
           <p className="text-sm text-gray-400 py-8 text-center">Not enough data yet to plot the matrix</p>
         ) : (
-          <ResponsiveContainer width="100%" height={320}>
-            <ScatterChart margin={{ top: 16, right: 24, bottom: 24, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis
-                type="number" dataKey="satisfaction" name="Satisfaction"
-                domain={[0, 5]} label={{ value: "Satisfaction (avg)", position: "insideBottom", offset: -12, fontSize: 10, fill: DARK_GREY }}
-                tick={{ fontSize: 10, fill: DARK_GREY }} tickLine={false} axisLine={false}
-              />
-              <YAxis
-                type="number" dataKey="importance" name="Importance"
-                domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`}
-                label={{ value: "Importance (priority freq.)", angle: -90, position: "insideLeft", offset: 16, fontSize: 10, fill: DARK_GREY }}
-                tick={{ fontSize: 10, fill: DARK_GREY }} tickLine={false} axisLine={false}
-              />
-              <ReferenceLine x={midSat} stroke="#d1d5db" strokeDasharray="4 4" />
-              <ReferenceLine y={midImp} stroke="#d1d5db" strokeDasharray="4 4" />
-              <Tooltip content={<MatrixTooltip />} />
-              <Scatter data={areas} shape={(props: any) => {
-                const { cx, cy, payload } = props;
-                // Guard: recharts may invoke the shape fn before layout is ready
-                if (cx == null || cy == null || !payload?.label) return <g />;
-                const color = quadrantColor(payload as SurveyAreaStat);
+          <>
+            {/* Pure SVG chart — numbered dots, labels in grid below — no in-chart text overlap */}
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              className="w-full h-auto"
+              style={{ overflow: "visible" }}
+              aria-label="Importance vs Satisfaction scatter matrix"
+            >
+              {/* Quadrant background fills — colour identifies quadrant without needing text labels */}
+              <rect x={PAD.left} y={PAD.top}  width={refX - PAD.left}      height={refY - PAD.top}      fill={HEBE_RED}  fillOpacity={0.04} />
+              <rect x={refX}     y={PAD.top}  width={PAD.left + cW - refX} height={refY - PAD.top}      fill="#16a34a"   fillOpacity={0.04} />
+              <rect x={PAD.left} y={refY}     width={refX - PAD.left}      height={PAD.top + cH - refY} fill="#9ca3af"   fillOpacity={0.06} />
+              <rect x={refX}     y={refY}     width={PAD.left + cW - refX} height={PAD.top + cH - refY} fill="#6b7280"   fillOpacity={0.04} />
+
+              {/* Light grid */}
+              {[1, 2, 3, 4].map((v) => (
+                <line key={`gx${v}`} x1={toX(v)} y1={PAD.top} x2={toX(v)} y2={PAD.top + cH} stroke="#e5e7eb" strokeWidth={0.5} />
+              ))}
+              {[0.25, 0.75].map((v) => (
+                <line key={`gy${v}`} x1={PAD.left} y1={toY(v)} x2={PAD.left + cW} y2={toY(v)} stroke="#e5e7eb" strokeWidth={0.5} />
+              ))}
+
+              {/* Quadrant dividers */}
+              <line x1={refX} y1={PAD.top} x2={refX} y2={PAD.top + cH} stroke="#9ca3af" strokeWidth={1} strokeDasharray="5 4" />
+              <line x1={PAD.left} y1={refY} x2={PAD.left + cW} y2={refY} stroke="#9ca3af" strokeWidth={1} strokeDasharray="5 4" />
+
+              {/* Y axis ticks + title */}
+              {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+                <text key={`yt${v}`} x={PAD.left - 6} y={toY(v) + 4} textAnchor="end" fontSize={8} fill={DARK_GREY}>
+                  {`${Math.round(v * 100)}%`}
+                </text>
+              ))}
+              <text
+                x={12} y={PAD.top + cH / 2}
+                textAnchor="middle" fontSize={9} fill={DARK_GREY}
+                transform={`rotate(-90, 12, ${PAD.top + cH / 2})`}
+              >
+                Importance
+              </text>
+
+              {/* X axis ticks + title */}
+              {[0, 1, 2, 3, 4, 5].map((v) => (
+                <text key={`xt${v}`} x={toX(v)} y={PAD.top + cH + 14} textAnchor="middle" fontSize={8} fill={DARK_GREY}>
+                  {v}
+                </text>
+              ))}
+              <text x={PAD.left + cW / 2} y={H - 2} textAnchor="middle" fontSize={9} fill={DARK_GREY}>
+                Satisfaction (avg / 5)
+              </text>
+
+              {/* Numbered dots — full labels are in the grid below, nothing to overlap here */}
+              {areas.map((a, i) => {
+                const cx = toX(a.satisfaction);
+                const cy = toY(a.importance);
+                const color = quadrantColor(a);
+                const isHovered = hovered === i;
                 return (
-                  <g>
-                    <circle cx={cx} cy={cy} r={8} fill={color} fillOpacity={0.85} />
-                    <text x={cx} y={cy - 12} textAnchor="middle" fontSize={9} fill={DARK_GREY}>
-                      {(payload as SurveyAreaStat).label.split(" ")[0]}
+                  <g key={a.label} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
+                    style={{ cursor: "default" }}>
+                    <title>{a.label} — Sat: {fmt1(a.satisfaction)}/5 · Imp: {fmtPct(a.importance * 100)}{a.count < 10 ? ` · ⚠ Low sample (n=${a.count})` : ""}</title>
+                    <circle cx={cx} cy={cy} r={isHovered ? 12 : 10} fill={color} fillOpacity={isHovered ? 1 : 0.88} stroke="white" strokeWidth={isHovered ? 2 : 1} />
+                    <text x={cx} y={cy + 4} textAnchor="middle" fontSize={isHovered ? 8 : 7}
+                      fontWeight="bold" fill="white" style={{ pointerEvents: "none" }}>
+                      {i + 1}
                     </text>
                   </g>
                 );
-              }} />
-            </ScatterChart>
-          </ResponsiveContainer>
+              })}
+            </svg>
+
+            {/* Numbered legend grid — full area names, no overlap possible */}
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800
+                            grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
+              {areas.map((a, i) => {
+                const color = quadrantColor(a);
+                return (
+                  <div
+                    key={a.label}
+                    className={`flex items-center gap-2 rounded-md px-2 py-1 transition-colors cursor-default ${
+                      hovered === i ? "bg-gray-100 dark:bg-gray-800" : ""
+                    }`}
+                    onMouseEnter={() => setHovered(i)}
+                    onMouseLeave={() => setHovered(null)}
+                  >
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center
+                                     text-[8px] font-bold text-white"
+                      style={{ backgroundColor: color }}>
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-gray-700 dark:text-gray-300 leading-tight">{a.label}</p>
+                      <p className="text-[9px] text-gray-400 tabular-nums">
+                        {fmt1(a.satisfaction)}/5 · {fmtPct(a.importance * 100)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
-        <p className="text-[10px] text-gray-400 mt-2">
+
+        <p className="text-[10px] text-gray-400 mt-3">
           Note: Importance is derived from priority selection frequency (Q15+Q16), not a direct importance rating.
         </p>
       </Card>
@@ -670,6 +862,11 @@ function CommentSection({ data }: { data: SurveyInsights }) {
                 {c.segment && (
                   <span className="inline-block mb-1 rounded-full border border-gray-200 dark:border-gray-700 px-2 py-0.5 text-[9px] font-semibold text-gray-500 dark:text-gray-400">
                     {c.segment}
+                  </span>
+                )}
+                {c.lang === "zh" && (
+                  <span className="inline-block mb-1 ml-1 rounded-full border border-blue-200 dark:border-blue-700 px-2 py-0.5 text-[9px] font-semibold text-blue-500 dark:text-blue-400">
+                    中文
                   </span>
                 )}
                 <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{c.text}</p>
@@ -924,6 +1121,7 @@ export default function SurveyPage() {
             <ExecutiveSummary data={data!} onRefresh={handleRefresh} refreshing={refreshing} />
             <SatisfactionSection data={data!} />
             <NpsSection data={data!} />
+            <MembershipBenefitsSection data={data!} />
             <MatrixSection data={data!} />
             <SegmentSection data={data!} />
             <PrioritySection data={data!} />

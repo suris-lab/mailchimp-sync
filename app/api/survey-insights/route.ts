@@ -49,14 +49,13 @@ const R1 = {
 } as const;
 
 const R2 = {
-  website_rating:       "21. How would you rate the clarity and usefulness of the Club website?",
-  membership_value:     "22. How would you rate the overall value of your HHYC membership?",
-  use_more:             "23. What would make you use the Club more often?",
-  use_more_other:       "23a. Please specify 請註明",
-  recommend_easier:     "24. What would make HHYC easier for you to recommend to prospective new members?",
-  target_members:       "25. In your view, what type of prospective members should HHYC focus on attracting?",
-  target_members_other: "25a. Please specify 請註明 (copy)",
-  final_comments:       "26. Is there anything else you would like the Club, General Committee, or management team to know?",
+  website_rating:      "21. How would you rate the clarity and usefulness of the Club website?",
+  membership_value:    "22. How would you rate the overall value of your HHYC membership?",
+  referral_aware:      "23. Were you aware of HHYC’s existing Member Referral Programme? 您是否知道本會現有的會員推薦計劃？",
+  referral_attractive: "23a. How attractive is the existing Member Referral Programme to you?  您認為現有會員推薦計劃的吸引力如何？",
+  referral_improve:    "24. What would make the Member Referral Programme more attractive to you? 哪些安排可令會員推薦計劃更具吸引力?",
+  privilege_value:     "25. How valuable do you find the privileges and benefits currently available to HHYC members? 您認為本會現時提供的會員專享禮遇及福利價值如何？",
+  final_comments:      "26. Is there anything else you would like the Club, General Committee, or management team to know? 您還有其他任何想法，希望讓本會、執行委員會或管理團隊了解嗎？",
 } as const;
 
 // ── Rating helpers ────────────────────────────────────────────────────────────
@@ -69,11 +68,17 @@ const NOT_APPLICABLE = [
   "Not applicable / I do not use this", "Not Applicable", "N/A", "n/a",
 ];
 
+// Q25 privilege value labels → numeric (different scale from RATING_TEXT_MAP)
+const PRIVILEGE_VALUE_MAP: Record<string, number> = {
+  "Not valuable": 1, "Slightly valuable": 2, "Moderately valuable": 3,
+  "Valuable": 4, "Very valuable": 5,
+};
+
 function parseRating(raw: string | undefined): number | null {
   if (!raw) return null;
   const n = Number(raw);
   if (!isNaN(n) && n >= 1 && n <= 5) return n;
-  return RATING_TEXT_MAP[raw.trim()] ?? null;
+  return RATING_TEXT_MAP[normBilingual(raw)] ?? null;
 }
 
 function parseNps(raw: string | undefined): number | null {
@@ -89,8 +94,8 @@ function parseSubRatings(text: string): Record<string, number | null> {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const result: Record<string, number | null> = {};
   for (let i = 0; i + 1 < lines.length; i += 2) {
-    const cat   = lines[i].replace(/:$/, "").trim();
-    const rtext = lines[i + 1].trim();
+    const cat   = normBilingual(lines[i].replace(/:$/, "").trim());
+    const rtext = normBilingual(lines[i + 1].trim());
     result[cat] = NOT_APPLICABLE.includes(rtext) ? null : (RATING_TEXT_MAP[rtext] ?? null);
   }
   return result;
@@ -99,11 +104,29 @@ function parseSubRatings(text: string): Record<string, number | null> {
 // Split a multi-select cell (newline-separated) into cleaned tokens
 function parseMultiSelect(raw: string): string[] {
   if (!raw) return [];
-  return raw.split("\n").map((s) => s.trim()).filter(Boolean);
+  return raw.split("\n").map((s) => normBilingual(s)).filter(Boolean);
 }
 
-// Normalise membership category: strip Chinese suffix
-function normCategory(raw: string): string {
+// Q23: referral programme awareness (Yes/No)
+function parseReferralAware(raw: string | undefined): "yes" | "no" | null {
+  if (!raw) return null;
+  const n = normBilingual(raw).toLowerCase();
+  if (n === "yes" || n === "y") return "yes";
+  if (n === "no"  || n === "n") return "no";
+  return null;
+}
+
+// Q25: privilege value rating (distinct 5-point scale + "not aware" opt-out → null)
+function parsePrivilegeValue(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = normBilingual(raw);
+  if (n.toLowerCase().startsWith("i am not aware")) return null;
+  return PRIVILEGE_VALUE_MAP[n] ?? null;
+}
+
+// Normalise a bilingual preset value "English 中文" → "English".
+// Safe no-op on already-English strings. Never apply to open-text comment fields.
+function normBilingual(raw: string): string {
   return raw.replace(/[一-鿿㐀-䶿＀-￯\s]+$/, "").trim() || raw.trim();
 }
 
@@ -151,7 +174,24 @@ const THEME_RULES: { theme: string; positive: string[]; negative: string[] }[] =
   { theme: "Membership Value", positive: ["value","worth","good value","membership"],                             negative: ["expensive membership","fee","not worth","value","cost"] },
 ];
 
+// Detect if a comment is Chinese-dominant (≥15% CJK characters)
+function detectLang(text: string): "zh" | "en" {
+  if (!text) return "en";
+  const cjkCount = (text.match(/[一-鿿㐀-䶿]/g) ?? []).length;
+  return cjkCount / text.length >= 0.15 ? "zh" : "en";
+}
+
+const ZH_POS = ["好","優","滿意","非常好","出色","完善","方便","愉快","喜歡","推薦","感謝","讚","棒"];
+const ZH_NEG = ["差","不滿","問題","改善","失望","不足","困難","不好","投訴","需要改","較差","沒有","太差"];
+
+function codeSentimentZh(text: string): "positive" | "negative" | "neutral" {
+  const p = ZH_POS.filter((w) => text.includes(w)).length;
+  const n = ZH_NEG.filter((w) => text.includes(w)).length;
+  return p > n ? "positive" : n > p ? "negative" : "neutral";
+}
+
 function codeSentiment(text: string): "positive" | "negative" | "neutral" {
+  if (detectLang(text) === "zh") return codeSentimentZh(text);
   const lower = text.toLowerCase();
   const posWords = ["great","excellent","good","love","wonderful","fantastic","satisfied","happy","perfect","recommend","enjoy","appreciate","best","outstanding","amazing"];
   const negWords = ["poor","bad","terrible","awful","disappoint","improve","lacking","issue","problem","concern","dissatisfied","worst","fail","inadequate","unacceptable"];
@@ -165,6 +205,7 @@ function codeSentiment(text: string): "positive" | "negative" | "neutral" {
 function codeThemes(texts: string[]): CommentTheme[] {
   const counts: Record<string, { count: number; pos: number; neg: number; neu: number; examples: string[] }> = {};
   for (const rule of THEME_RULES) counts[rule.theme] = { count: 0, pos: 0, neg: 0, neu: 0, examples: [] };
+  counts["Chinese (untagged)"] = { count: 0, pos: 0, neg: 0, neu: 0, examples: [] };
   counts["Other"] = { count: 0, pos: 0, neg: 0, neu: 0, examples: [] };
 
   for (const text of texts) {
@@ -186,7 +227,8 @@ function codeThemes(texts: string[]): CommentTheme[] {
       }
     }
     if (!matched) {
-      const b = counts["Other"];
+      const bucketKey = detectLang(text) === "zh" ? "Chinese (untagged)" : "Other";
+      const b = counts[bucketKey];
       b.count++;
       if (sentiment === "positive") b.pos++;
       else if (sentiment === "negative") b.neg++;
@@ -231,7 +273,7 @@ const AREA_SUBCATS: Record<string, { field: "clubhouse_ratings" | "fnb_ratings" 
 function buildSegmentStats(rows: MergedRow[], key: string): Record<string, SurveySegmentStat> {
   const groups: Record<string, MergedRow[]> = {};
   for (const row of rows) {
-    const val = row[key] ? normCategory(row[key]) : "Unknown";
+    const val = row[key] ? normBilingual(row[key]) : "Unknown";
     if (!groups[val]) groups[val] = [];
     groups[val].push(row);
   }
@@ -430,7 +472,7 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
     const d: Record<string, number> = {};
     for (const r of rows) {
       const v = (r[field] ?? "").trim();
-      if (v) d[normCategory(v)] = (d[normCategory(v)] ?? 0) + 1;
+      if (v) d[normBilingual(v)] = (d[normBilingual(v)] ?? 0) + 1;
     }
     return d;
   }
@@ -456,14 +498,43 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
   const websiteVals = complete.map((r) => parseRating(r[R2.website_rating])).filter((v): v is number => v !== null);
   const valueVals   = complete.map((r) => parseRating(r[R2.membership_value])).filter((v): v is number => v !== null);
 
+  // Referral programme awareness (Q23 — Yes / No)
+  const referralVals = complete.map((r) => parseReferralAware(r[R2.referral_aware]));
+  const referralYes  = referralVals.filter((v) => v === "yes").length;
+  const referralNo   = referralVals.filter((v) => v === "no").length;
+  const referralN    = referralVals.filter((v) => v !== null).length || 1;
+
+  // Member privilege value (Q25 — 5-point scale, "not aware" excluded)
+  const privVals          = complete.map((r) => parsePrivilegeValue(r[R2.privilege_value]));
+  const avgPrivilegeValue = avg(privVals);
+  const privNotAwareCount = complete.filter((r) => normBilingual(r[R2.privilege_value] ?? "").toLowerCase().startsWith("i am not aware")).length;
+  const privilegeValueDist: Record<string, number> = {};
+  for (const row of complete) {
+    const v = normBilingual(row[R2.privilege_value] ?? "");
+    if (v && !v.toLowerCase().startsWith("i am not aware")) {
+      privilegeValueDist[v] = (privilegeValueDist[v] ?? 0) + 1;
+    }
+  }
+
+  // Referral programme attractiveness (Q23a — conditional, only answered when Q23 = Yes)
+  const refAttrVals = complete
+    .map((r) => parseRating(r[R2.referral_attractive]))
+    .filter((v): v is number => v !== null);
+  const avgReferralAttractive = refAttrVals.length > 0 ? avg(refAttrVals) : 0;
+  const referralAttractiveDist: Record<string, number> = {};
+  for (const row of complete) {
+    const v = normBilingual(row[R2.referral_attractive] ?? "");
+    if (v) referralAttractiveDist[v] = (referralAttractiveDist[v] ?? 0) + 1;
+  }
+
   // ── Comment collection + theme coding ─────────────────────────────────────
-  const allComments: { segment?: string; text: string }[] = [];
-  const textSources = [R1.nps_reason, R1.best_thing, R1.improve_thing, R1.highest_priority, R2.final_comments];
+  const allComments: { segment?: string; lang?: "en" | "zh"; text: string }[] = [];
+  const textSources = [R1.nps_reason, R1.best_thing, R1.improve_thing, R1.highest_priority, R2.referral_improve, R2.final_comments];
   for (const row of merged) {
-    const seg = row[R1.membership_category] ? normCategory(row[R1.membership_category]) : undefined;
+    const seg = row[R1.membership_category] ? normBilingual(row[R1.membership_category]) : undefined;
     for (const field of textSources) {
       const text = (row[field] ?? "").trim();
-      if (text && text.toLowerCase() !== "test") allComments.push({ segment: seg, text });
+      if (text && text.toLowerCase() !== "test") allComments.push({ segment: seg, lang: detectLang(text), text });
     }
   }
   const commentTexts  = allComments.map((c) => c.text);
@@ -512,6 +583,12 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
     comm_satisfaction:      avg(commSatVals),
     website_rating:         avg(websiteVals),
     membership_value:       avg(valueVals),
+    referral_aware:             { yes: referralYes, no: referralNo, pct_aware: Math.round((referralYes / referralN) * 100) },
+    avg_referral_attractive:    avgReferralAttractive,
+    referral_attractive_dist:   referralAttractiveDist,
+    avg_privilege_value:        avgPrivilegeValue,
+    privilege_value_dist:       privilegeValueDist,
+    privilege_not_aware_n:      privNotAwareCount,
     tenure_dist,
     visit_freq_dist,
     usage_type_dist,
