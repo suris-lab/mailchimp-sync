@@ -366,6 +366,7 @@ export interface SurveyInsights {
   top_priorities: { label: string; count: number; pct: number }[];
 
   comm_channels: { label: string; count: number; pct: number }[];
+  comm_info_wanted: { label: string; count: number; pct: number }[];
   comm_satisfaction: number;
   website_rating: number;
   membership_value: number;

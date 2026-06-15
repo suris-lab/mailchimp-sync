@@ -519,6 +519,17 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
     .sort((a, b) => b[1] - a[1])
     .map(([label, count]) => ({ label, count, pct: Math.round((count / (merged.length || 1)) * 100) }));
 
+  // Q20 — content types members want more of (multi-select)
+  const infoWantedFreq: Record<string, number> = {};
+  for (const row of merged) {
+    for (const item of parseMultiSelect(row[R1.comm_info_wanted])) {
+      infoWantedFreq[item] = (infoWantedFreq[item] ?? 0) + 1;
+    }
+  }
+  const comm_info_wanted = Object.entries(infoWantedFreq)
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, count]) => ({ label, count, pct: Math.round((count / (merged.length || 1)) * 100) }));
+
   // Scalar ratings
   const commSatVals = complete.map((r) => parseRating(r[R1.comm_satisfaction])).filter((v): v is number => v !== null);
   const websiteVals = complete.map((r) => parseRating(r[R2.website_rating])).filter((v): v is number => v !== null);
@@ -606,6 +617,7 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
     by_nps_group,
     top_priorities,
     comm_channels,
+    comm_info_wanted,
     comm_satisfaction:      avg(commSatVals),
     website_rating:         avg(websiteVals),
     membership_value:       avg(valueVals),

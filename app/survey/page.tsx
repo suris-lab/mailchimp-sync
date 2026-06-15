@@ -359,7 +359,106 @@ function NpsSection({ data }: { data: SurveyInsights }) {
   );
 }
 
-// ── Section 4: Membership & Benefits ─────────────────────────────────────────
+// ── Section 4: Communications ─────────────────────────────────────────────────
+
+function CommunicationsSection({ data }: { data: SurveyInsights }) {
+  const maxCh   = data.comm_channels[0]?.count   || 1;
+  const maxInfo = data.comm_info_wanted[0]?.count || 1;
+
+  return (
+    <section>
+      <SectionTitle
+        label="Communications"
+        sub="Satisfaction (Q18) · Channel preferences (Q19) · Content wanted (Q20) · Website rating (Q21)"
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Scores + channel preferences */}
+        <Card>
+          {/* Two scalar scores */}
+          <div className="flex gap-6 mb-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Comm. Satisfaction (Q18)</p>
+              <p className="text-4xl font-black tabular-nums mt-1" style={{ color: satColor(data.comm_satisfaction) }}>
+                {data.comm_satisfaction > 0 ? fmt1(data.comm_satisfaction) : "—"}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">out of 5</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Website Rating (Q21)</p>
+              <p className="text-4xl font-black tabular-nums mt-1" style={{ color: satColor(data.website_rating) }}>
+                {data.website_rating > 0 ? fmt1(data.website_rating) : "—"}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">out of 5</p>
+            </div>
+          </div>
+
+          {/* Q19 — channel preferences */}
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+            Preferred Channels (Q19)
+          </p>
+          {data.comm_channels.length === 0 ? (
+            <p className="text-[10px] text-gray-400">No responses yet</p>
+          ) : (
+            <div className="space-y-1.5">
+              {data.comm_channels.map(({ label, count, pct }) => (
+                <div key={label}>
+                  <div className="flex justify-between mb-0.5">
+                    <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[72%]">{label}</span>
+                    <span className="text-[10px] tabular-nums text-gray-400 shrink-0">{count} · {fmtPct(pct)}</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div className="h-1.5 rounded-full bg-gray-500" style={{ width: `${(count / maxCh) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Q20 — content types wanted */}
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            Content Members Want More Of (Q20)
+          </p>
+          {data.comm_info_wanted.length === 0 ? (
+            <p className="text-[10px] text-gray-400">No responses yet</p>
+          ) : (
+            <div className="space-y-2">
+              {data.comm_info_wanted.map(({ label, count, pct }, i) => (
+                <div key={label} className="flex items-center gap-3">
+                  <span className={`text-[10px] font-bold tabular-nums w-4 shrink-0 ${i < 3 ? "text-hebe-red" : "text-gray-400"}`}>
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{label}</span>
+                      <span className="text-[10px] tabular-nums text-gray-400 ml-2 shrink-0">{count} · {fmtPct(pct)}</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div
+                        className="h-2 rounded-full"
+                        style={{
+                          width: `${(count / maxInfo) * 100}%`,
+                          backgroundColor: i < 3 ? HEBE_RED : "#6b7280",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-gray-400 mt-3">
+            Multi-select — percentages exceed 100% as each respondent may choose several.
+          </p>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+// ── Section 5: Membership & Benefits ─────────────────────────────────────────
 
 const PRIVILEGE_ORDER = ["Not valuable", "Slightly valuable", "Moderately valuable", "Valuable", "Very valuable"];
 
@@ -1171,6 +1270,7 @@ export default function SurveyPage() {
             <ExecutiveSummary data={data!} onRefresh={handleRefresh} refreshing={refreshing} />
             <SatisfactionSection data={data!} />
             <NpsSection data={data!} />
+            <CommunicationsSection data={data!} />
             <MembershipBenefitsSection data={data!} />
             <MatrixSection data={data!} />
             <SegmentSection data={data!} />
