@@ -513,6 +513,38 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
   const refX = toX(midSat);
   const refY = toY(midImp);
 
+  // ── Collision separation ──────────────────────────────────────────────────────
+  // Push dots that are too close apart so all numbers remain readable.
+  // Displaced dots get a dashed tether back to their true data position.
+  const DOT_R = 10;
+  const MIN_DIST = DOT_R * 2 + 4; // min centre-to-centre distance
+  const placed = areas.map((a) => ({
+    cx: toX(a.satisfaction), cy: toY(a.importance),
+    trueX: toX(a.satisfaction), trueY: toY(a.importance),
+  }));
+  for (let pass = 0; pass < 80; pass++) {
+    let moved = false;
+    for (let ai = 0; ai < placed.length; ai++) {
+      for (let bi = ai + 1; bi < placed.length; bi++) {
+        const dx = placed[bi].cx - placed[ai].cx;
+        const dy = placed[bi].cy - placed[ai].cy;
+        const d  = Math.sqrt(dx * dx + dy * dy);
+        if (d < MIN_DIST) {
+          moved = true;
+          const push = (MIN_DIST - d) / 2 + 0.5;
+          if (d < 0.1) {                        // identical — push one right
+            placed[ai].cx -= push; placed[bi].cx += push;
+          } else {
+            const nx = dx / d; const ny = dy / d;
+            placed[ai].cx -= nx * push; placed[ai].cy -= ny * push;
+            placed[bi].cx += nx * push; placed[bi].cy += ny * push;
+          }
+        }
+      }
+    }
+    if (!moved) break;
+  }
+
   return (
     <section>
       <SectionTitle
@@ -591,17 +623,32 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
                 Satisfaction (avg / 5)
               </text>
 
-              {/* Numbered dots — full labels are in the grid below, nothing to overlap here */}
+              {/* Tether lines — drawn first so they sit beneath the dots */}
+              {placed.map((p, i) => {
+                const dist = Math.sqrt((p.cx - p.trueX) ** 2 + (p.cy - p.trueY) ** 2);
+                if (dist < 2) return null;
+                return (
+                  <g key={`tether-${i}`}>
+                    <line x1={p.trueX} y1={p.trueY} x2={p.cx} y2={p.cy}
+                      stroke="#9ca3af" strokeWidth={1} strokeDasharray="3 2" />
+                    <circle cx={p.trueX} cy={p.trueY} r={3}
+                      fill="white" stroke="#9ca3af" strokeWidth={1.5} />
+                  </g>
+                );
+              })}
+
+              {/* Numbered dots at separated positions — full labels in grid below */}
               {areas.map((a, i) => {
-                const cx = toX(a.satisfaction);
-                const cy = toY(a.importance);
+                const { cx, cy } = placed[i];
                 const color = quadrantColor(a);
                 const isHovered = hovered === i;
                 return (
                   <g key={a.label} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
                     style={{ cursor: "default" }}>
                     <title>{a.label} — Sat: {fmt1(a.satisfaction)}/5 · Imp: {fmtPct(a.importance * 100)}{a.count < 10 ? ` · ⚠ Low sample (n=${a.count})` : ""}</title>
-                    <circle cx={cx} cy={cy} r={isHovered ? 12 : 10} fill={color} fillOpacity={isHovered ? 1 : 0.88} stroke="white" strokeWidth={isHovered ? 2 : 1} />
+                    <circle cx={cx} cy={cy} r={isHovered ? 12 : DOT_R}
+                      fill={color} fillOpacity={isHovered ? 1 : 0.88}
+                      stroke="white" strokeWidth={isHovered ? 2 : 1} />
                     <text x={cx} y={cy + 4} textAnchor="middle" fontSize={isHovered ? 8 : 7}
                       fontWeight="bold" fill="white" style={{ pointerEvents: "none" }}>
                       {i + 1}
