@@ -49,7 +49,7 @@ const R1 = {
 } as const;
 
 const R2 = {
-  website_rating:      "21. How would you rate the clarity and usefulness of the Club website?",
+  website_rating:      "21. How would you rate the clarity of the Club website? 您對本會官方網站的清晰度評分如何",
   membership_value:    "22. How would you rate the overall value of your HHYC membership?",
   referral_aware:      "23. Were you aware of HHYC’s existing Member Referral Programme? 您是否知道本會現有的會員推薦計劃？",
   referral_attractive: "23a. How attractive is the existing Member Referral Programme to you?  您認為現有會員推薦計劃的吸引力如何？",
