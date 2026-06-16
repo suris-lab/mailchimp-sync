@@ -305,9 +305,9 @@ function NpsSection({ data }: { data: SurveyInsights }) {
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-4">Response Split</p>
           <div className="flex h-8 rounded-lg overflow-hidden">
             {[
-              { n: nps_dist.promoters,  color: GREY_700 },
-              { n: nps_dist.passives,   color: GREY_400 },
               { n: nps_dist.detractors, color: HEBE_RED },
+              { n: nps_dist.passives,   color: GREY_400 },
+              { n: nps_dist.promoters,  color: GREY_700 },
             ].map(({ n, color }, i) => (
               <div
                 key={i}
