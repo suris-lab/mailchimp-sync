@@ -246,14 +246,17 @@ function SatisfactionSection({ data }: { data: SurveyInsights }) {
                 <div key={a.label}>
                   <div className="flex justify-between mb-0.5">
                     <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[65%]">{a.label}</span>
-                    <span className="text-[10px] font-semibold tabular-nums" style={{ color: satColor(a.satisfaction) }}>
+                    <span className="text-[10px] font-semibold tabular-nums" style={{ color: a.satisfaction >= 4 ? HEBE_RED : a.satisfaction >= 3 ? GREY_500 : GREY_700 }}>
                       {fmt1(a.satisfaction)}
                     </span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
                     <div
                       className="h-1.5 rounded-full transition-all"
-                      style={{ width: `${(a.satisfaction / 5) * 100}%`, backgroundColor: satColor(a.satisfaction) }}
+                      style={{
+                        width: `${(a.satisfaction / 5) * 100}%`,
+                        backgroundColor: a.satisfaction >= 4 ? HEBE_RED : a.satisfaction >= 3 ? GREY_500 : GREY_700,
+                      }}
                     />
                   </div>
                 </div>
