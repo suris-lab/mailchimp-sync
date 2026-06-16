@@ -17,6 +17,9 @@ import type { SurveyInsights, SurveyAreaStat } from "@/lib/types";
 
 const HEBE_RED  = "#EB0029";
 const DARK_GREY = "#53565A";
+const GREY_700  = "#374151";   // replaces green — high/good
+const GREY_500  = "#6b7280";   // replaces amber — neutral/mid
+const GREY_400  = "#9ca3af";   // light grey — low priority / passives
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,13 +38,13 @@ function fmtPct(n: number): string { return `${Math.round(n)}%`; }
 
 function npsColor(score: number): string {
   if (score < 0)  return HEBE_RED;
-  if (score < 30) return "#ca8a04";   // amber-600
-  return "#16a34a";                   // green-600
+  if (score < 30) return GREY_500;
+  return GREY_700;
 }
 
 function satColor(avg: number): string {
-  if (avg >= 4)   return "#16a34a";
-  if (avg >= 3)   return "#ca8a04";
+  if (avg >= 4)   return GREY_700;
+  if (avg >= 3)   return GREY_500;
   return HEBE_RED;
 }
 
@@ -49,8 +52,8 @@ function satColor(avg: number): string {
 
 function LowSampleBadge() {
   return (
-    <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-amber-300 dark:border-amber-700
-                     px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+    <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600
+                     px-1.5 py-0.5 text-[9px] font-semibold text-gray-500 dark:text-gray-400">
       <AlertTriangle size={9} /> Low sample
     </span>
   );
@@ -143,7 +146,7 @@ function ExecutiveSummary({ data, onRefresh, refreshing }: { data: SurveyInsight
         >
           <div className="flex items-center gap-2">
             {(dq.unmatched_r1 > 0 || dq.missing_fields.length > 0) && (
-              <AlertTriangle size={11} className="text-amber-500" />
+              <AlertTriangle size={11} className="text-hebe-red" />
             )}
             <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               Data Quality
@@ -166,13 +169,13 @@ function ExecutiveSummary({ data, onRefresh, refreshing }: { data: SurveyInsight
             ].map(({ label, value, warn }) => (
               <div key={label}>
                 <p className="text-[9px] uppercase tracking-widest text-gray-400">{label}</p>
-                <p className={`font-semibold mt-0.5 ${warn ? "text-amber-600 dark:text-amber-400" : "text-gray-700 dark:text-gray-300"}`}>{value}</p>
+                <p className={`font-semibold mt-0.5 ${warn ? "text-hebe-red" : "text-gray-700 dark:text-gray-300"}`}>{value}</p>
               </div>
             ))}
             {dq.missing_fields.length > 0 && (
               <div className="col-span-full">
                 <p className="text-[9px] uppercase tracking-widest text-gray-400">Missing fields</p>
-                <p className="text-amber-600 dark:text-amber-400 font-semibold mt-0.5">{dq.missing_fields.join(" · ")}</p>
+                <p className="text-hebe-red font-semibold mt-0.5">{dq.missing_fields.join(" · ")}</p>
               </div>
             )}
           </div>
@@ -205,7 +208,7 @@ function SatisfactionSection({ data }: { data: SurveyInsights }) {
           <p className="text-sm text-gray-400 mt-1">out of 5</p>
           <div className="flex gap-4 mt-4 text-center">
             <div>
-              <p className="text-xl font-black text-emerald-600">{fmtPct(data.pct_satisfied)}</p>
+              <p className="text-xl font-black" style={{ color: GREY_700 }}>{fmtPct(data.pct_satisfied)}</p>
               <p className="text-[10px] text-gray-400 uppercase tracking-wide">Satisfied</p>
             </div>
             <div>
@@ -225,7 +228,7 @@ function SatisfactionSection({ data }: { data: SurveyInsights }) {
               <Tooltip formatter={(v) => [v, "Responses"]} />
               <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                 {distData.map((d) => (
-                  <Cell key={d.label} fill={d.label.startsWith("4") || d.label.startsWith("5") ? "#16a34a" : d.label.startsWith("3") ? "#ca8a04" : HEBE_RED} />
+                  <Cell key={d.label} fill={d.label.startsWith("4") || d.label.startsWith("5") ? GREY_700 : d.label.startsWith("3") ? GREY_500 : HEBE_RED} />
                 ))}
               </Bar>
             </BarChart>
@@ -282,9 +285,9 @@ function NpsSection({ data }: { data: SurveyInsights }) {
           <p className="text-[10px] text-gray-400 mt-1">Avg recommendation: {fmt1(avg_nps_raw)}/10</p>
           <div className="mt-4 flex gap-3 text-center text-xs">
             {[
-              { label: "Promoters",  n: nps_dist.promoters,  color: "#16a34a" },
-              { label: "Passives",   n: nps_dist.passives,   color: "#ca8a04" },
-              { label: "Detractors", n: nps_dist.detractors, color: HEBE_RED  },
+              { label: "Promoters",  n: nps_dist.promoters,  color: GREY_700 },
+              { label: "Passives",   n: nps_dist.passives,   color: GREY_400 },
+              { label: "Detractors", n: nps_dist.detractors, color: HEBE_RED },
             ].map(({ label, n, color }) => (
               <div key={label}>
                 <p className="text-lg font-black" style={{ color }}>{fmtPct((n / total) * 100)}</p>
@@ -299,9 +302,9 @@ function NpsSection({ data }: { data: SurveyInsights }) {
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-4">Response Split</p>
           <div className="flex h-8 rounded-lg overflow-hidden">
             {[
-              { n: nps_dist.promoters,  color: "#16a34a" },
-              { n: nps_dist.passives,   color: "#ca8a04" },
-              { n: nps_dist.detractors, color: HEBE_RED  },
+              { n: nps_dist.promoters,  color: GREY_700 },
+              { n: nps_dist.passives,   color: GREY_400 },
+              { n: nps_dist.detractors, color: HEBE_RED },
             ].map(({ n, color }, i) => (
               <div
                 key={i}
@@ -311,9 +314,9 @@ function NpsSection({ data }: { data: SurveyInsights }) {
             ))}
           </div>
           <div className="flex justify-between mt-2 text-[9px] text-gray-400">
-            <span>Detractors (0–6)</span>
-            <span>Passives (7–8)</span>
-            <span>Promoters (9–10)</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: HEBE_RED }} />Detractors (0–6)</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: GREY_400 }} />Passives (7–8)</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: GREY_700 }} />Promoters (9–10)</span>
           </div>
           <p className="text-[10px] text-gray-400 mt-4 uppercase tracking-widest font-semibold">NPS by Membership Category</p>
           <div className="mt-2 space-y-1">
@@ -486,7 +489,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
           </p>
           <div className="flex items-end gap-4 mb-4">
             <div>
-              <p className="text-5xl font-black tabular-nums" style={{ color: referral_aware.pct_aware >= 50 ? "#16a34a" : HEBE_RED }}>
+              <p className="text-5xl font-black tabular-nums" style={{ color: referral_aware.pct_aware >= 50 ? GREY_700 : HEBE_RED }}>
                 {referral_aware.pct_aware}%
               </p>
               <p className="text-[10px] text-gray-400 mt-1">aware of the programme</p>
@@ -494,19 +497,19 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
             <div className="text-xs text-gray-400 pb-1">
               <p>{referral_aware.yes} yes · {referral_aware.no} no</p>
               {(referral_aware.yes + referral_aware.no) === 0 && (
-                <p className="text-amber-500 mt-1">No responses yet</p>
+                <p className="text-gray-400 mt-1">No responses yet</p>
               )}
             </div>
           </div>
           {/* Yes / No split bar */}
           <div className="flex h-5 rounded-lg overflow-hidden">
-            <div style={{ flex: referral_aware.yes, backgroundColor: "#16a34a", minWidth: referral_aware.yes > 0 ? 2 : 0 }}
+            <div style={{ flex: referral_aware.yes, backgroundColor: GREY_700, minWidth: referral_aware.yes > 0 ? 2 : 0 }}
               title={`${referral_aware.yes} Yes`} />
             <div style={{ flex: referral_aware.no, backgroundColor: HEBE_RED, minWidth: referral_aware.no > 0 ? 2 : 0 }}
               title={`${referral_aware.no} No`} />
           </div>
           <div className="flex justify-between mt-1.5 text-[9px] text-gray-400">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />Yes</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: GREY_700 }} />Yes</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: HEBE_RED }} />No</span>
           </div>
           {/* Q23a attractiveness rating — only shown to members who said Yes */}
@@ -515,7 +518,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
               Attractiveness Rating (Q23a · Yes respondents only)
             </p>
             {attrEntries.length === 0 ? (
-              <p className="text-[10px] text-amber-500">No responses yet</p>
+              <p className="text-[10px] text-gray-400">No responses yet</p>
             ) : (
               <div className="space-y-1.5">
                 {attrEntries.map(([label, count]) => (
@@ -525,7 +528,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
                       <span className="text-[10px] tabular-nums text-gray-400">{count}</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
-                      <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${(count / maxAttr) * 100}%` }} />
+                      <div className="h-1.5 rounded-full" style={{ width: `${(count / maxAttr) * 100}%`, backgroundColor: GREY_700 }} />
                     </div>
                   </div>
                 ))}
@@ -571,7 +574,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
                       className="h-1.5 rounded-full"
                       style={{
                         width: `${(count / maxPriv) * 100}%`,
-                        backgroundColor: score >= 4 ? "#16a34a" : score === 3 ? "#ca8a04" : HEBE_RED,
+                        backgroundColor: score >= 4 ? GREY_700 : score === 3 ? GREY_500 : HEBE_RED,
                       }}
                     />
                   </div>
@@ -599,9 +602,9 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
     const hiSat = a.satisfaction >= midSat;
     const hiImp = a.importance >= midImp;
     if (hiImp && !hiSat) return HEBE_RED;
-    if (hiImp && hiSat)  return "#16a34a";
-    if (!hiImp && hiSat) return "#6b7280";
-    return "#9ca3af";
+    if (hiImp && hiSat)  return GREY_700;
+    if (!hiImp && hiSat) return GREY_500;
+    return GREY_400;
   };
 
   // SVG coordinate system — viewBox makes this fully responsive, no overflow
@@ -656,10 +659,10 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
         {/* Quadrant legend */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 text-[10px]">
           {[
-            { color: HEBE_RED,   label: "Immediate Priority",  desc: "High importance · Low satisfaction"  },
-            { color: "#16a34a",  label: "Protect & Maintain",  desc: "High importance · High satisfaction" },
-            { color: "#6b7280",  label: "Nice to Have",        desc: "Low importance · High satisfaction"  },
-            { color: "#9ca3af",  label: "Lower Priority",      desc: "Low importance · Low satisfaction"   },
+            { color: HEBE_RED, label: "Immediate Priority", desc: "High importance · Low satisfaction"  },
+            { color: GREY_700, label: "Protect & Maintain", desc: "High importance · High satisfaction" },
+            { color: GREY_500, label: "Nice to Have",       desc: "Low importance · High satisfaction"  },
+            { color: GREY_400, label: "Lower Priority",     desc: "Low importance · Low satisfaction"   },
           ].map(({ color, label, desc }) => (
             <div key={label} className="flex items-start gap-1.5">
               <span className="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -683,10 +686,10 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
               aria-label="Importance vs Satisfaction scatter matrix"
             >
               {/* Quadrant background fills — colour identifies quadrant without needing text labels */}
-              <rect x={PAD.left} y={PAD.top}  width={refX - PAD.left}      height={refY - PAD.top}      fill={HEBE_RED}  fillOpacity={0.04} />
-              <rect x={refX}     y={PAD.top}  width={PAD.left + cW - refX} height={refY - PAD.top}      fill="#16a34a"   fillOpacity={0.04} />
-              <rect x={PAD.left} y={refY}     width={refX - PAD.left}      height={PAD.top + cH - refY} fill="#9ca3af"   fillOpacity={0.06} />
-              <rect x={refX}     y={refY}     width={PAD.left + cW - refX} height={PAD.top + cH - refY} fill="#6b7280"   fillOpacity={0.04} />
+              <rect x={PAD.left} y={PAD.top}  width={refX - PAD.left}      height={refY - PAD.top}      fill={HEBE_RED} fillOpacity={0.04} />
+              <rect x={refX}     y={PAD.top}  width={PAD.left + cW - refX} height={refY - PAD.top}      fill={GREY_700} fillOpacity={0.04} />
+              <rect x={PAD.left} y={refY}     width={refX - PAD.left}      height={PAD.top + cH - refY} fill={GREY_400} fillOpacity={0.06} />
+              <rect x={refX}     y={refY}     width={PAD.left + cW - refX} height={PAD.top + cH - refY} fill={GREY_500} fillOpacity={0.04} />
 
               {/* Light grid */}
               {[1, 2, 3, 4].map((v) => (
@@ -981,15 +984,15 @@ function CommentSection({ data }: { data: SurveyInsights }) {
                       <span className="text-[10px] tabular-nums text-gray-400">{t.count}</span>
                     </div>
                     <div className="flex h-2 rounded-full overflow-hidden">
-                      <div style={{ flex: t.sentiment.positive, backgroundColor: "#16a34a" }} title={`${t.sentiment.positive} positive`} />
-                      <div style={{ flex: t.sentiment.neutral,  backgroundColor: "#d1d5db" }} title={`${t.sentiment.neutral} neutral`} />
-                      <div style={{ flex: t.sentiment.negative, backgroundColor: HEBE_RED  }} title={`${t.sentiment.negative} negative`} />
+                      <div style={{ flex: t.sentiment.positive, backgroundColor: GREY_700 }} title={`${t.sentiment.positive} positive`} />
+                      <div style={{ flex: t.sentiment.neutral,  backgroundColor: GREY_400 }} title={`${t.sentiment.neutral} neutral`} />
+                      <div style={{ flex: t.sentiment.negative, backgroundColor: HEBE_RED }} title={`${t.sentiment.negative} negative`} />
                     </div>
                   </div>
                 );
               })}
               <div className="flex gap-4 mt-2 text-[9px] text-gray-400">
-                {[{ c: "#16a34a", l: "Positive" }, { c: "#d1d5db", l: "Neutral" }, { c: HEBE_RED, l: "Negative" }].map(({ c, l }) => (
+                {[{ c: GREY_700, l: "Positive" }, { c: GREY_400, l: "Neutral" }, { c: HEBE_RED, l: "Negative" }].map(({ c, l }) => (
                   <div key={l} className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: c }} />{l}</div>
                 ))}
               </div>
@@ -1016,7 +1019,7 @@ function CommentSection({ data }: { data: SurveyInsights }) {
                   </span>
                 )}
                 {c.lang === "zh" && (
-                  <span className="inline-block mb-1 ml-1 rounded-full border border-blue-200 dark:border-blue-700 px-2 py-0.5 text-[9px] font-semibold text-blue-500 dark:text-blue-400">
+                  <span className="inline-block mb-1 ml-1 rounded-full border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-[9px] font-semibold text-gray-500 dark:text-gray-400">
                     中文
                   </span>
                 )}
@@ -1041,7 +1044,7 @@ function CommentSection({ data }: { data: SurveyInsights }) {
               </button>
             </div>
             <div className="flex gap-2 text-[10px]">
-              <span className="text-emerald-600">{t.sentiment.positive} pos</span>
+              <span style={{ color: GREY_700 }}>{t.sentiment.positive} pos</span>
               <span className="text-gray-400">{t.sentiment.neutral} neu</span>
               <span style={{ color: HEBE_RED }}>{t.sentiment.negative} neg</span>
             </div>
@@ -1150,7 +1153,7 @@ function ActionSection({ data }: { data: SurveyInsights }) {
                         item.timing === "0–3m"
                           ? "border-hebe-red/40 bg-hebe-red/10 text-hebe-red"
                           : item.timing === "3–6m"
-                          ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400"
+                          ? "border-gray-400 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400"
                           : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"
                       }`}>
                         {item.timing}
@@ -1189,14 +1192,14 @@ function EmptyState({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
 
 function ErrorState({ message, onRefresh, refreshing }: { message: string; onRefresh: () => void; refreshing: boolean }) {
   return (
-    <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-12 text-center">
-      <AlertTriangle size={20} className="text-amber-500 mx-auto mb-3" />
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-12 text-center">
+      <AlertTriangle size={20} className="text-hebe-red mx-auto mb-3" />
       <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Could not load survey data</p>
       <p className="text-xs text-gray-400 mt-1 mb-4">{message}</p>
       <button
         onClick={onRefresh}
         disabled={refreshing}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 dark:border-amber-700 px-3 py-1.5
+        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-1.5
                    text-xs text-gray-600 dark:text-gray-400 hover:text-hebe-red hover:border-hebe-red transition-colors disabled:opacity-50"
       >
         <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
