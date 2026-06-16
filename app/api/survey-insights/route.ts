@@ -309,46 +309,87 @@ function buildSegmentStats(rows: MergedRow[], key: string): Record<string, Surve
 // ── Action item generator ────────────────────────────────────────────────────
 
 function buildActionItems(areas: SurveyAreaStat[], themes: CommentTheme[], n: number): SurveyActionItem[] {
+  const MID_SAT = 3.0;
+  const MID_IMP = 0.5;
   const maxImportance = Math.max(...areas.map((a) => a.importance), 0.001);
   const maxSat = 5;
 
-  const scored = areas.map((a) => {
+  type Quadrant = "immediate" | "protect" | "monitor" | "lower";
+
+  const getQuadrant = (a: SurveyAreaStat): Quadrant => {
+    const hiImp = a.importance >= MID_IMP;
+    const hiSat = a.satisfaction >= MID_SAT;
+    if (hiImp && !hiSat) return "immediate";
+    if (hiImp &&  hiSat) return "protect";
+    if (!hiImp && !hiSat) return "monitor";
+    return "lower";
+  };
+
+  const scoreOf = (a: SurveyAreaStat): number => {
     const impNorm = a.importance / maxImportance;
     const satNorm = a.satisfaction / maxSat;
     const theme   = themes.find((t) => t.theme.toLowerCase().includes(a.label.toLowerCase().split(" ")[0]));
     const negPct  = theme ? (theme.sentiment.negative / (theme.count || 1)) : 0;
-    const score   = Math.round((WEIGHTS.importance * impNorm + WEIGHTS.satisfaction * (1 - satNorm) + WEIGHTS.comments * negPct) * 100);
-    return { area: a, score };
-  }).sort((a, b) => b.score - a.score).slice(0, n);
+    return Math.round((WEIGHTS.importance * impNorm + WEIGHTS.satisfaction * (1 - satNorm) + WEIGHTS.comments * negPct) * 100);
+  };
+
+  // Sort: Immediate Priority → Monitor → Protect & Maintain → Lower Priority
+  // Within each quadrant, sort by score descending
+  const QUAD_ORDER: Record<Quadrant, number> = { immediate: 0, monitor: 1, protect: 2, lower: 3 };
+
+  const sorted = areas
+    .filter((a) => a.count > 0)
+    .map((a) => ({ area: a, score: scoreOf(a), quad: getQuadrant(a) }))
+    .sort((a, b) => QUAD_ORDER[a.quad] - QUAD_ORDER[b.quad] || b.score - a.score)
+    .slice(0, n);
 
   const OWNER_MAP: Record<string, string> = {
-    "F&B":         "F&B",       "Fnb": "F&B",          "Food": "F&B",
-    "Marine":      "Marine",    "Sailing": "Sailing Centre",
-    "Racing":      "Sailing Centre",
-    "Family":      "Membership", "Youth": "Sailing Centre",
-    "Communications": "Marketing & Comms", "Membership Value": "GenCom",
-    "Clubhouse":   "Operations", "Cleanliness": "Operations", "Car Parking": "Operations",
-    "Community":   "GenCom",    "Member Service": "General Office/Admin",
-    "Social":      "Membership",
+    "F&B":            "F&B",
+    "Marine":         "Marine",
+    "Sailing":        "Sailing Centre",
+    "Racing":         "Sailing Centre",
+    "Family":         "Membership",
+    "Communications": "Marketing & Comms",
+    "Membership":     "GenCom",
+    "Clubhouse":      "Operations",
+    "Cleanliness":    "Operations",
+    "Car Parking":    "Operations",
+    "Community":      "GenCom",
+    "Member Service": "General Office/Admin",
+    "Social":         "Membership",
   };
 
-  const TIMING_MAP = (score: number): SurveyActionItem["timing"] => {
-    if (score >= 60) return "0–3m";
-    if (score >= 40) return "3–6m";
-    if (score >= 25) return "6–12m";
-    return "Long-term";
+  const ACTION_TEXT: Record<Quadrant, (label: string) => string> = {
+    immediate: (l) => `Urgently address ${l} — members rate this as high priority but satisfaction is below average`,
+    monitor:   (l) => `Monitor and improve ${l} — satisfaction is below average; currently lower member priority but worth addressing`,
+    protect:   (l) => `Maintain current ${l} standards — this is a high-priority area that is performing well; protect from decline`,
+    lower:     (l) => `Continue monitoring ${l} — low priority and low satisfaction; review if priority rises`,
   };
 
-  return scored.map(({ area, score }, i) => {
+  const QUAD_LABEL: Record<Quadrant, string> = {
+    immediate: "⚠ Immediate Priority",
+    monitor:   "◎ Monitor",
+    protect:   "✓ Protect & Maintain",
+    lower:     "↓ Lower Priority",
+  };
+
+  const TIMING: Record<Quadrant, (score: number) => SurveyActionItem["timing"]> = {
+    immediate: (s) => s >= 60 ? "0–3m" : s >= 40 ? "3–6m" : "6–12m",
+    monitor:   (_)  => "6–12m",
+    protect:   (_)  => "Long-term",
+    lower:     (_)  => "Long-term",
+  };
+
+  return sorted.map(({ area, score, quad }, i) => {
     const ownerKey = Object.keys(OWNER_MAP).find((k) => area.label.includes(k)) ?? "";
     return {
       priority_rank:      i + 1,
       priority_score:     score,
       issue:              area.label,
-      evidence:           `Satisfaction ${area.satisfaction.toFixed(1)}/5 · Importance rank ${i + 1} · Priority freq ${(area.importance * 100).toFixed(0)}%`,
-      recommended_action: `Review and improve ${area.label.toLowerCase()} based on member feedback`,
+      evidence:           `Sat ${area.satisfaction.toFixed(1)}/5 · Imp ${(area.importance * 100).toFixed(0)}% · ${QUAD_LABEL[quad]}`,
+      recommended_action: ACTION_TEXT[quad](area.label.toLowerCase()),
       owner:              OWNER_MAP[ownerKey] ?? "GenCom",
-      timing:             TIMING_MAP(score),
+      timing:             TIMING[quad](score),
     };
   });
 }
