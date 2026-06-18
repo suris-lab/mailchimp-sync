@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [historyOpen, setHistoryOpen] = useState(false);
   const [trendDays, setTrendDays] = useState<30 | 60 | 90>(90);
+  const [showTotal, setShowTotal] = useState(false);
   const [showResigned, setShowResigned] = useState(false);
   const [showAbsent, setShowAbsent] = useState(false);
   const [showNonMember, setShowNonMember] = useState(false);
@@ -187,35 +188,37 @@ export default function DashboardPage() {
               date: d.date.slice(5),
               "Active Members": d.active,
             };
-            if (showResigned)  row["Resigned"]   = d.resigned;
-            if (showAbsent)    row["Absent"]      = d.absent;
-            if (showNonMember) row["Non-Member"]  = d.non_member;
+            if (showTotal)     row["Total"]       = d.active + d.resigned + d.absent;
+            if (showResigned)  row["Resigned"]    = d.resigned;
+            if (showAbsent)    row["Absent"]       = d.absent;
+            if (showNonMember) row["Non-Member"]   = d.non_member;
             return row;
           });
 
           const toggles: { key: string; label: string; count: number; color: string; active: boolean; set: (v: boolean) => void }[] = [
-            { key: "resigned",  label: "Resigned",   count: current?.resigned ?? 0,   color: "#EB0029", active: showResigned,  set: setShowResigned },
-            { key: "absent",    label: "Absent",      count: current?.absent ?? 0,     color: "#6b7280", active: showAbsent,    set: setShowAbsent },
-            { key: "nonmember", label: "Non-Member",  count: current?.non_member ?? 0, color: "#9ca3af", active: showNonMember, set: setShowNonMember },
+            { key: "total",     label: "Total",       count: current?.total ?? 0,      color: "#374151", active: showTotal,     set: setShowTotal },
+            { key: "resigned",  label: "Resigned",    count: current?.resigned ?? 0,   color: "#EB0029", active: showResigned,  set: setShowResigned },
+            { key: "absent",    label: "Absent",       count: current?.absent ?? 0,     color: "#6b7280", active: showAbsent,    set: setShowAbsent },
+            { key: "nonmember", label: "Non-Member",   count: current?.non_member ?? 0, color: "#9ca3af", active: showNonMember, set: setShowNonMember },
           ];
 
           return (
-            <section className="rounded-2xl bg-gray-900 dark:bg-black border border-gray-800 overflow-hidden">
+            <section className="rounded-2xl bg-white dark:bg-black border border-gray-200 dark:border-gray-800 overflow-hidden">
               {/* Big number */}
-              <div className="px-6 pt-8 pb-4 text-center">
+              <div className="px-6 pt-10 pb-5 text-center">
                 {!current ? (
-                  <div className="h-28 flex items-center justify-center">
-                    <div className="w-40 h-16 rounded-lg bg-gray-800 animate-pulse" />
+                  <div className="h-32 flex items-center justify-center">
+                    <div className="w-48 h-20 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
                   </div>
                 ) : (
                   <>
-                    <p className="text-8xl sm:text-9xl font-black tabular-nums leading-none text-hebe-red">
+                    <p className="text-[7rem] sm:text-[9rem] font-black tabular-nums leading-none text-hebe-red tracking-tight">
                       {current.active.toLocaleString()}
                     </p>
-                    <p className="text-sm font-bold tracking-widest uppercase text-white mt-4">
+                    <p className="text-base font-bold tracking-[0.25em] uppercase text-gray-900 dark:text-white mt-5">
                       Active Members
                     </p>
-                    <p className="text-[9px] text-gray-600 mt-1.5">
+                    <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5">
                       Excl. Non-Members, Staff, GM, Reciprocal Club, Resigned &amp; Absent
                     </p>
                   </>
@@ -226,39 +229,34 @@ export default function DashboardPage() {
               {chartData.length > 0 && (
                 <div className="px-4 pb-5">
                   {/* Controls row: toggles + date range */}
-                  <div className="flex items-center justify-between mb-3 px-2 flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={10} className="text-gray-500" />
-                      <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-500">
-                        Member Trend
-                      </span>
-                      <span className="mx-1 text-gray-700">|</span>
+                  <div className="flex items-center justify-between mb-4 px-2 flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {toggles.map((t) => (
                         <button
                           key={t.key}
                           onClick={() => t.set(!t.active)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
                             t.active
-                              ? "text-white"
-                              : "text-gray-600 hover:text-gray-300"
+                              ? "border-transparent"
+                              : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
                           }`}
-                          style={t.active ? { backgroundColor: t.color + "30", color: t.color } : {}}
+                          style={t.active ? { backgroundColor: t.color + "20", color: t.color, borderColor: t.color + "40" } : {}}
                         >
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color, opacity: t.active ? 1 : 0.4 }} />
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color, opacity: t.active ? 1 : 0.35 }} />
                           {t.label}
-                          <span className="tabular-nums text-[9px] opacity-70">{t.count.toLocaleString()}</span>
+                          <span className="tabular-nums font-black text-sm">{t.count.toLocaleString()}</span>
                         </button>
                       ))}
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5">
                       {([30, 60, 90] as const).map((d) => (
                         <button
                           key={d}
                           onClick={() => setTrendDays(d)}
-                          className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                             trendDays === d
                               ? "bg-hebe-red text-white"
-                              : "text-gray-500 hover:text-white"
+                              : "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white"
                           }`}
                         >
                           {d}d
@@ -267,25 +265,36 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <ResponsiveContainer width="100%" height={200}>
+                  <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                       <defs>
                         <linearGradient id="gradActive" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#EB0029" stopOpacity={0.15} />
+                          <stop offset="5%" stopColor="#EB0029" stopOpacity={0.12} />
                           <stop offset="95%" stopColor="#EB0029" stopOpacity={0} />
                         </linearGradient>
+                        <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#374151" stopOpacity={0.12} />
+                          <stop offset="95%" stopColor="#374151" stopOpacity={0} />
+                        </linearGradient>
                       </defs>
-                      <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" vertical={false} />
+                      <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} className="dark:[&>line]:stroke-gray-800" />
                       <XAxis
-                        dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }}
+                        dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }}
                         axisLine={false} tickLine={false} interval="preserveStartEnd"
                       />
-                      <YAxis tick={{ fontSize: 9, fill: "#6b7280" }} axisLine={false} tickLine={false} width={40} />
+                      <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={44} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 11 }}
-                        labelStyle={{ color: "#9ca3af", fontSize: 10 }}
+                        contentStyle={{ backgroundColor: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: "#6b7280", fontSize: 11 }}
                         itemStyle={{ padding: 0 }}
                       />
+                      {/* Total — toggled overlay behind Active */}
+                      {showTotal && (
+                        <Area
+                          type="monotone" dataKey="Total" stroke="#374151" strokeWidth={1.5}
+                          fill="url(#gradTotal)" dot={false}
+                        />
+                      )}
                       {/* Active Members — always visible, main line */}
                       <Area
                         type="monotone" dataKey="Active Members" stroke="#EB0029" strokeWidth={2}
