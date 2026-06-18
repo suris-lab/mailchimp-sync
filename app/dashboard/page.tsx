@@ -184,14 +184,18 @@ export default function DashboardPage() {
           const daily = trendData?.daily ?? [];
           const sliced = daily.slice(-trendDays);
           const chartData = sliced.map((d) => {
+            const active    = d.active     ?? 0;
+            const resigned  = d.resigned   ?? 0;
+            const absent    = d.absent     ?? 0;
+            const nonMember = d.non_member ?? 0;
             const row: Record<string, string | number> = {
               date: d.date.slice(5),
-              "Active Members": d.active,
+              "Active Members": active,
             };
-            if (showTotal)     row["Total"]       = d.active + d.resigned + d.absent;
-            if (showResigned)  row["Resigned"]    = d.resigned;
-            if (showAbsent)    row["Absent"]       = d.absent;
-            if (showNonMember) row["Non-Member"]   = d.non_member;
+            if (showTotal)     row["Total"]      = active + resigned + absent;
+            if (showResigned)  row["Resigned"]   = resigned;
+            if (showAbsent)    row["Absent"]     = absent;
+            if (showNonMember) row["Non-Member"] = nonMember;
             return row;
           });
 
