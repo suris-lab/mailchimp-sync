@@ -3,7 +3,7 @@ import { kvGet, kvSet } from "@/lib/kv";
 import { fetchSheetContacts } from "@/tools/google-sheets";
 import type { MemberTrendStats, MemberTrendEntry } from "@/lib/types";
 
-const KV_KEY = "sync:member_trend_v2";
+const KV_KEY = "sync:member_trend_v3";
 const CACHE_TTL = 3600; // 1 hour
 
 function isNonMember(membership: string): boolean {
@@ -69,12 +69,6 @@ export async function GET(request: Request) {
     });
   }
 
-  // Build sorted date arrays for each series
-  const sortedQual      = tagged.filter((t) => t.qualifying).map((t) => t.date).sort();
-  const sortedResigned  = tagged.filter((t) => t.isResigned).map((t) => t.date).sort();
-  const sortedAbsent    = tagged.filter((t) => t.isAbsent).map((t) => t.date).sort();
-  const sortedNonMember = tagged.filter((t) => t.isNonMember).map((t) => t.date).sort();
-
   // Build 90-day date range
   const today = new Date();
   const dates: string[] = [];
@@ -84,16 +78,18 @@ export async function GET(request: Request) {
     dates.push(d.toISOString().slice(0, 10));
   }
 
-  // Walk through sorted arrays to get cumulative counts at each date
-  let qIdx = 0, rIdx = 0, aIdx = 0, nmIdx = 0;
-
-  const daily: MemberTrendEntry[] = dates.map((date) => {
-    while (qIdx  < sortedQual.length      && sortedQual[qIdx] <= date)      qIdx++;
-    while (rIdx  < sortedResigned.length  && sortedResigned[rIdx] <= date)  rIdx++;
-    while (aIdx  < sortedAbsent.length    && sortedAbsent[aIdx] <= date)    aIdx++;
-    while (nmIdx < sortedNonMember.length && sortedNonMember[nmIdx] <= date) nmIdx++;
-    return { date, active: qIdx - rIdx - aIdx, resigned: rIdx, absent: aIdx, non_member: nmIdx };
-  });
+  // Count additions per date from createdAt (only for dates in our window)
+  const dateSet = new Set(dates);
+  const added: Record<string, { qual: number; resigned: number; absent: number; nonMember: number }> = {};
+  for (const date of dates) added[date] = { qual: 0, resigned: 0, absent: 0, nonMember: 0 };
+  for (const t of tagged) {
+    if (!dateSet.has(t.date)) continue;
+    const a = added[t.date];
+    if (t.qualifying) a.qual++;
+    if (t.isResigned) a.resigned++;
+    if (t.isAbsent)   a.absent++;
+    if (t.isNonMember) a.nonMember++;
+  }
 
   const current = {
     total: qualifying.length,
@@ -102,6 +98,24 @@ export async function GET(request: Request) {
     absent: absentN,
     non_member: nonMembers.length,
   };
+
+  // Reconstruct historical totals by walking BACKWARDS from today's known counts.
+  // This ensures the chart anchors to the real current total and subtracts additions
+  // to estimate previous days — much more accurate than building up from createdAt alone.
+  let rActive    = current.active;
+  let rResigned  = current.resigned;
+  let rAbsent    = current.absent;
+  let rNonMember = current.non_member;
+
+  const daily: MemberTrendEntry[] = new Array(dates.length);
+  for (let i = dates.length - 1; i >= 0; i--) {
+    daily[i] = { date: dates[i], active: rActive, resigned: rResigned, absent: rAbsent, non_member: rNonMember };
+    const a = added[dates[i]];
+    rActive    -= (a.qual - a.resigned - a.absent);
+    rResigned  -= a.resigned;
+    rAbsent    -= a.absent;
+    rNonMember -= a.nonMember;
+  }
 
   const stats: MemberTrendStats = {
     computed_at: new Date().toISOString(),

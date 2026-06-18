@@ -183,13 +183,20 @@ export default function DashboardPage() {
           const current = trendData?.current;
           const daily = trendData?.daily ?? [];
           const sliced = daily.slice(-trendDays);
+          const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          const fmtDate = (iso: string) => {
+            const m = parseInt(iso.slice(5, 7), 10) - 1;
+            const d = parseInt(iso.slice(8, 10), 10);
+            return `${MONTHS[m]} ${d}`;
+          };
+
           const chartData = sliced.map((d) => {
             const active    = d.active     ?? 0;
             const resigned  = d.resigned   ?? 0;
             const absent    = d.absent     ?? 0;
             const nonMember = d.non_member ?? 0;
             const row: Record<string, string | number> = {
-              date: d.date.slice(5),
+              date: fmtDate(d.date),
               "Active Members": active,
             };
             if (showTotal)     row["Total"]      = active + resigned + absent;
@@ -284,7 +291,8 @@ export default function DashboardPage() {
                       <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} className="dark:[&>line]:stroke-gray-800" />
                       <XAxis
                         dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }}
-                        axisLine={false} tickLine={false} interval="preserveStartEnd"
+                        axisLine={false} tickLine={false}
+                        interval={trendDays <= 30 ? 6 : trendDays <= 60 ? 13 : 14}
                       />
                       <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={44} />
                       <Tooltip
