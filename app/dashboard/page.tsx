@@ -74,7 +74,6 @@ export default function DashboardPage() {
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [historyOpen, setHistoryOpen] = useState(false);
   const [trendDays, setTrendDays] = useState<30 | 60 | 90>(90);
-  const [showTotal, setShowTotal] = useState(true);
   const [showResigned, setShowResigned] = useState(false);
   const [showAbsent, setShowAbsent] = useState(false);
   const [showNonMember, setShowNonMember] = useState(false);
@@ -195,11 +194,11 @@ export default function DashboardPage() {
             const resigned  = d.resigned   ?? 0;
             const absent    = d.absent     ?? 0;
             const nonMember = d.non_member ?? 0;
+            const total     = active + resigned + absent; // excl non-members, staff, GM, reciprocal; incl absent
             const row: Record<string, string | number> = {
               date: fmtDate(d.date),
-              "Active Members": active,
+              "Total Members": total,
             };
-            if (showTotal)     row["Total"]      = active + resigned + absent;
             if (showResigned)  row["Resigned"]   = resigned;
             if (showAbsent)    row["Absent"]     = absent;
             if (showNonMember) row["Non-Member"] = nonMember;
@@ -207,7 +206,6 @@ export default function DashboardPage() {
           });
 
           const toggles: { key: string; label: string; count: number; color: string; active: boolean; set: (v: boolean) => void }[] = [
-            { key: "total",     label: "Total",       count: current?.total ?? 0,      color: "#374151", active: showTotal,     set: setShowTotal },
             { key: "resigned",  label: "Resigned",    count: current?.resigned ?? 0,   color: "#EB0029", active: showResigned,  set: setShowResigned },
             { key: "absent",    label: "Absent",       count: current?.absent ?? 0,     color: "#6b7280", active: showAbsent,    set: setShowAbsent },
             { key: "nonmember", label: "Non-Member",   count: current?.non_member ?? 0, color: "#9ca3af", active: showNonMember, set: setShowNonMember },
@@ -233,13 +231,13 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <p className="text-7xl sm:text-8xl font-bold tabular-nums leading-none text-hebe-red" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
-                      {current.active.toLocaleString()}
+                      {(current.total - current.resigned).toLocaleString()}
                     </p>
                     <p className="text-sm font-bold tracking-[0.2em] uppercase text-gray-900 dark:text-white mt-4" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
-                      Active Members
+                      Total Members
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5">
-                      Excl. Non-Members, Staff, GM, Reciprocal Club, Resigned &amp; Absent
+                      Excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned
                     </p>
                   </>
                 )}
@@ -292,10 +290,6 @@ export default function DashboardPage() {
                           <stop offset="5%" stopColor="#EB0029" stopOpacity={0.12} />
                           <stop offset="95%" stopColor="#EB0029" stopOpacity={0} />
                         </linearGradient>
-                        <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#374151" stopOpacity={0.12} />
-                          <stop offset="95%" stopColor="#374151" stopOpacity={0} />
-                        </linearGradient>
                       </defs>
                       <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} className="dark:[&>line]:stroke-gray-800" />
                       <XAxis
@@ -312,16 +306,9 @@ export default function DashboardPage() {
                         labelStyle={{ color: "#6b7280", fontSize: 11 }}
                         itemStyle={{ padding: 0 }}
                       />
-                      {/* Total — toggled overlay behind Active */}
-                      {showTotal && (
-                        <Area
-                          type="monotone" dataKey="Total" stroke="#374151" strokeWidth={1.5}
-                          fill="url(#gradTotal)" dot={false}
-                        />
-                      )}
-                      {/* Active Members — always visible, main line */}
+                      {/* Total Members — always visible, main line */}
                       <Area
-                        type="monotone" dataKey="Active Members" stroke="#EB0029" strokeWidth={2}
+                        type="monotone" dataKey="Total Members" stroke="#EB0029" strokeWidth={2}
                         fill="url(#gradActive)" dot={false}
                       />
                       {showResigned && (
