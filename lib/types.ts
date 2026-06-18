@@ -162,15 +162,16 @@ export interface GrowthStats {
 
 // Member trend — cumulative member counts over time
 export interface MemberTrendEntry {
-  date: string;       // "YYYY-MM-DD"
-  total: number;      // all qualifying members (excl non-member types)
-  resigned: number;   // subset with Resigned modifier
-  absent: number;     // subset with Absent modifier
+  date: string;        // "YYYY-MM-DD"
+  active: number;      // qualifying members minus resigned & absent
+  resigned: number;    // subset with Resigned modifier
+  absent: number;      // subset with Absent modifier
+  non_member: number;  // contacts with Non_Member membership type
 }
 
 export interface MemberTrendStats {
   computed_at: string;
-  current: { total: number; resigned: number; absent: number; active: number };
+  current: { total: number; active: number; resigned: number; absent: number; non_member: number };
   daily: MemberTrendEntry[];  // chronological, up to 90 entries
 }
 

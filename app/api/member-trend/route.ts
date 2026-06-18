@@ -6,9 +6,14 @@ import type { MemberTrendStats, MemberTrendEntry } from "@/lib/types";
 const KV_KEY = "sync:member_trend";
 const CACHE_TTL = 3600; // 1 hour
 
+function isNonMember(membership: string): boolean {
+  const m = (membership ?? "").toLowerCase().replace(/[_\-\s]+/g, "");
+  return m.includes("non") && m.includes("member");
+}
+
 function isExcludedMembership(membership: string): boolean {
   const m = (membership ?? "").toLowerCase().replace(/[_\-\s]+/g, "");
-  return (m.includes("non") && m.includes("member")) ||
+  return isNonMember(membership) ||
     m === "allstaff" || m === "gm" || m.includes("reciprocal");
 }
 
@@ -35,27 +40,40 @@ export async function GET(request: Request) {
 
   const contacts = await fetchSheetContacts();
 
-  // Filter to qualifying members only (exclude non-member types)
+  // Qualifying members (exclude non-member types, staff, GM, reciprocal)
   const qualifying = contacts.filter((c) => !isExcludedMembership(c.membership));
+  const nonMembers = contacts.filter((c) => isNonMember(c.membership));
 
-  const resigned = qualifying.filter(
+  const resignedN = qualifying.filter(
     (c) => (c.membershipModifier ?? "").toLowerCase().includes("resigned"),
-  );
-  const absent = qualifying.filter(
+  ).length;
+  const absentN = qualifying.filter(
     (c) => (c.membershipModifier ?? "").toLowerCase().includes("absent"),
-  );
+  ).length;
 
-  // Parse createdAt dates for cumulative trend
-  const withDate = qualifying
-    .map((c) => ({
-      date: toISODate(c.createdAt),
-      isResigned: (c.membershipModifier ?? "").toLowerCase().includes("resigned"),
-      isAbsent: (c.membershipModifier ?? "").toLowerCase().includes("absent"),
-    }))
-    .filter((c): c is { date: string; isResigned: boolean; isAbsent: boolean } => c.date !== null);
+  // Tag each contact with flags + parsed date for cumulative trend
+  type Tagged = { date: string; qualifying: boolean; isResigned: boolean; isAbsent: boolean; isNonMember: boolean };
+  const tagged: Tagged[] = [];
 
-  // Sort by date ascending
-  withDate.sort((a, b) => a.date.localeCompare(b.date));
+  for (const c of contacts) {
+    const date = toISODate(c.createdAt);
+    if (!date) continue;
+    const qual = !isExcludedMembership(c.membership);
+    const mod = (c.membershipModifier ?? "").toLowerCase();
+    tagged.push({
+      date,
+      qualifying: qual,
+      isResigned: qual && mod.includes("resigned"),
+      isAbsent: qual && mod.includes("absent"),
+      isNonMember: isNonMember(c.membership),
+    });
+  }
+
+  // Build sorted date arrays for each series
+  const sortedQual      = tagged.filter((t) => t.qualifying).map((t) => t.date).sort();
+  const sortedResigned  = tagged.filter((t) => t.isResigned).map((t) => t.date).sort();
+  const sortedAbsent    = tagged.filter((t) => t.isAbsent).map((t) => t.date).sort();
+  const sortedNonMember = tagged.filter((t) => t.isNonMember).map((t) => t.date).sort();
 
   // Build 90-day date range
   const today = new Date();
@@ -66,27 +84,23 @@ export async function GET(request: Request) {
     dates.push(d.toISOString().slice(0, 10));
   }
 
-  // Cumulative counts per day (contacts whose createdAt <= that day)
-  let totalIdx = 0;
-  let resignedIdx = 0;
-  let absentIdx = 0;
-
-  const sortedTotal = withDate.map((c) => c.date).sort();
-  const sortedResigned = withDate.filter((c) => c.isResigned).map((c) => c.date).sort();
-  const sortedAbsent = withDate.filter((c) => c.isAbsent).map((c) => c.date).sort();
+  // Walk through sorted arrays to get cumulative counts at each date
+  let qIdx = 0, rIdx = 0, aIdx = 0, nmIdx = 0;
 
   const daily: MemberTrendEntry[] = dates.map((date) => {
-    while (totalIdx < sortedTotal.length && sortedTotal[totalIdx] <= date) totalIdx++;
-    while (resignedIdx < sortedResigned.length && sortedResigned[resignedIdx] <= date) resignedIdx++;
-    while (absentIdx < sortedAbsent.length && sortedAbsent[absentIdx] <= date) absentIdx++;
-    return { date, total: totalIdx, resigned: resignedIdx, absent: absentIdx };
+    while (qIdx  < sortedQual.length      && sortedQual[qIdx] <= date)      qIdx++;
+    while (rIdx  < sortedResigned.length  && sortedResigned[rIdx] <= date)  rIdx++;
+    while (aIdx  < sortedAbsent.length    && sortedAbsent[aIdx] <= date)    aIdx++;
+    while (nmIdx < sortedNonMember.length && sortedNonMember[nmIdx] <= date) nmIdx++;
+    return { date, active: qIdx - rIdx - aIdx, resigned: rIdx, absent: aIdx, non_member: nmIdx };
   });
 
   const current = {
     total: qualifying.length,
-    resigned: resigned.length,
-    absent: absent.length,
-    active: qualifying.length - resigned.length - absent.length,
+    active: qualifying.length - resignedN - absentN,
+    resigned: resignedN,
+    absent: absentN,
+    non_member: nonMembers.length,
   };
 
   const stats: MemberTrendStats = {
