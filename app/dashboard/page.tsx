@@ -168,6 +168,32 @@ export default function DashboardPage() {
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
+        {/* ── Active Members Hero ── */}
+        {(() => {
+          if (audienceLoading || !audienceStats) return null;
+          const EXCLUDED_MEMBERSHIPS = ["non-members", "all staff", "gm", "reciprocal_club"];
+          const excludedCount = Object.entries(audienceStats.membership)
+            .filter(([k]) => EXCLUDED_MEMBERSHIPS.includes(k.toLowerCase()))
+            .reduce((sum, [, v]) => sum + v, 0);
+          const resignedCount = Object.entries(audienceStats.membership_modifier)
+            .filter(([k]) => k.toLowerCase() === "resigned")
+            .reduce((sum, [, v]) => sum + v, 0);
+          const activeMembers = audienceStats.total_sheet_contacts - excludedCount - resignedCount;
+          return (
+            <section className="rounded-2xl bg-gray-900 dark:bg-black border border-gray-800 px-6 py-8 text-center">
+              <p className="text-8xl sm:text-9xl font-black tabular-nums leading-none text-hebe-red">
+                {activeMembers.toLocaleString()}
+              </p>
+              <p className="text-sm font-bold tracking-widest uppercase text-white mt-4">
+                Active Members
+              </p>
+              <p className="text-[10px] text-gray-500 mt-1.5">
+                Total contacts excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned
+              </p>
+            </section>
+          );
+        })()}
+
         {/* ── Operations Hub ── */}
         <section>
 
