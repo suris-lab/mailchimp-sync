@@ -216,10 +216,10 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-[7rem] sm:text-[9rem] font-black tabular-nums leading-none text-hebe-red tracking-tight">
+                    <p className="text-7xl sm:text-8xl font-bold tabular-nums leading-none text-hebe-red" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                       {current.active.toLocaleString()}
                     </p>
-                    <p className="text-base font-bold tracking-[0.25em] uppercase text-gray-900 dark:text-white mt-5">
+                    <p className="text-sm font-bold tracking-[0.2em] uppercase text-gray-900 dark:text-white mt-4" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                       Active Members
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5">
