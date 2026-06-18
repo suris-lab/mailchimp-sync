@@ -194,7 +194,7 @@ export default function DashboardPage() {
             const resigned  = d.resigned   ?? 0;
             const absent    = d.absent     ?? 0;
             const nonMember = d.non_member ?? 0;
-            const total     = active + resigned + absent + 209; // +209 absent members not on GSheets
+            const total     = active + resigned + absent + 208; // +208 absent members not on GSheets
             const row: Record<string, string | number> = {
               date: fmtDate(d.date),
               "Total Members": total,
@@ -231,13 +231,13 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <p className="text-7xl sm:text-8xl font-bold tabular-nums leading-none text-hebe-red" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
-                      {(current.total - current.resigned + 209).toLocaleString()}
+                      {(current.total - current.resigned + 208).toLocaleString()}
                     </p>
                     <p className="text-sm font-bold tracking-[0.2em] uppercase text-gray-900 dark:text-white mt-4" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                       Total Members
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5">
-                      Excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned · +209 Absent members (not on GSheets)
+                      Excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned · +208 Absent members (not on GSheets)
                     </p>
                   </>
                 )}
