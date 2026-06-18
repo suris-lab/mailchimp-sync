@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, Sparkles, Database, BarChart2, Users, Zap, ClipboardList } from "lucide-react";
+import { Settings, Sparkles, Database, BarChart2, Users, Zap, ClipboardList, Calendar } from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
+} from "recharts";
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
@@ -15,6 +18,7 @@ import { useAudienceStats } from "@/hooks/useAudienceStats";
 import { useBackupStatus } from "@/hooks/useBackupStatus";
 import { useMembershipStats } from "@/hooks/useMembershipStats";
 import { useMailchimpAutomations } from "@/hooks/useMailchimpAutomations";
+import { useMemberTrend } from "@/hooks/useMemberTrend";
 import type { AutomationStatus } from "@/lib/types";
 
 const AUTO_DOT: Record<AutomationStatus, string> = {
@@ -69,12 +73,14 @@ export default function DashboardPage() {
   const [start, setStart] = useState(daysAgo(29));
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [trendDays, setTrendDays] = useState<30 | 60 | 90>(90);
 
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
   const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
   const lastBackupAt = useBackupStatus();
   const { data: membershipStats } = useMembershipStats();
   const { data: automationsData, isLoading: automationsLoading } = useMailchimpAutomations();
+  const { data: trendData } = useMemberTrend();
 
   const automations = automationsData?.automations ?? [];
   const runningCount = automations.filter((a) => a.status === "sending").length;
@@ -168,28 +174,116 @@ export default function DashboardPage() {
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
-        {/* ── Active Members Hero ── */}
+        {/* ── Active Members Hero + Trend ── */}
         {(() => {
-          if (audienceLoading || !audienceStats) return null;
-          const EXCLUDED_MEMBERSHIPS = ["non-members", "all staff", "gm", "reciprocal_club"];
-          const excludedCount = Object.entries(audienceStats.membership)
-            .filter(([k]) => EXCLUDED_MEMBERSHIPS.includes(k.toLowerCase()))
-            .reduce((sum, [, v]) => sum + v, 0);
-          const resignedCount = Object.entries(audienceStats.membership_modifier)
-            .filter(([k]) => k.toLowerCase() === "resigned")
-            .reduce((sum, [, v]) => sum + v, 0);
-          const activeMembers = audienceStats.total_sheet_contacts - excludedCount - resignedCount;
+          const current = trendData?.current;
+          const daily = trendData?.daily ?? [];
+          const chartData = daily.slice(-trendDays).map((d) => ({
+            date: d.date.slice(5),
+            "All Members": d.total,
+            Resigned: d.resigned,
+            Absent: d.absent,
+          }));
+
           return (
-            <section className="rounded-2xl bg-gray-900 dark:bg-black border border-gray-800 px-6 py-8 text-center">
-              <p className="text-8xl sm:text-9xl font-black tabular-nums leading-none text-hebe-red">
-                {activeMembers.toLocaleString()}
-              </p>
-              <p className="text-sm font-bold tracking-widest uppercase text-white mt-4">
-                Active Members
-              </p>
-              <p className="text-[10px] text-gray-500 mt-1.5">
-                Total contacts excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned
-              </p>
+            <section className="rounded-2xl bg-gray-900 dark:bg-black border border-gray-800 overflow-hidden">
+              {/* Big number */}
+              <div className="px-6 pt-8 pb-4 text-center">
+                {!current ? (
+                  <div className="h-28 flex items-center justify-center">
+                    <div className="w-40 h-16 rounded-lg bg-gray-800 animate-pulse" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-8xl sm:text-9xl font-black tabular-nums leading-none text-hebe-red">
+                      {current.active.toLocaleString()}
+                    </p>
+                    <p className="text-sm font-bold tracking-widest uppercase text-white mt-4">
+                      Active Members
+                    </p>
+                    <div className="flex justify-center gap-6 mt-3 text-[10px]">
+                      <span className="text-gray-400">Total <span className="font-bold text-white">{current.total.toLocaleString()}</span></span>
+                      <span className="text-gray-400">Resigned <span className="font-bold text-hebe-red">{current.resigned.toLocaleString()}</span></span>
+                      <span className="text-gray-400">Absent <span className="font-bold text-gray-300">{current.absent.toLocaleString()}</span></span>
+                    </div>
+                    <p className="text-[9px] text-gray-600 mt-1.5">
+                      Excl. Non-Members, Staff, GM, Reciprocal Club
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Trend chart */}
+              {chartData.length > 0 && (
+                <div className="px-4 pb-5">
+                  {/* Date range buttons */}
+                  <div className="flex items-center justify-between mb-3 px-2">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={10} className="text-gray-500" />
+                      <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-500">
+                        Member Trend
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
+                      {([30, 60, 90] as const).map((d) => (
+                        <button
+                          key={d}
+                          onClick={() => setTrendDays(d)}
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                            trendDays === d
+                              ? "bg-hebe-red text-white"
+                              : "text-gray-500 hover:text-white"
+                          }`}
+                        >
+                          {d}d
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <ResponsiveContainer width="100%" height={180}>
+                    <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                      <defs>
+                        <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#6b7280" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#6b7280" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradResigned" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#EB0029" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#EB0029" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }}
+                        axisLine={false} tickLine={false} interval="preserveStartEnd"
+                      />
+                      <YAxis tick={{ fontSize: 9, fill: "#6b7280" }} axisLine={false} tickLine={false} width={40} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 11 }}
+                        labelStyle={{ color: "#9ca3af", fontSize: 10 }}
+                        itemStyle={{ padding: 0 }}
+                      />
+                      <Legend
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: 10, color: "#9ca3af", paddingTop: 4 }}
+                      />
+                      <Area
+                        type="monotone" dataKey="All Members" stroke="#6b7280" strokeWidth={1.5}
+                        fill="url(#gradTotal)" dot={false}
+                      />
+                      <Area
+                        type="monotone" dataKey="Resigned" stroke="#EB0029" strokeWidth={1.5}
+                        fill="url(#gradResigned)" dot={false}
+                      />
+                      <Area
+                        type="monotone" dataKey="Absent" stroke="#9ca3af" strokeWidth={1.5}
+                        strokeDasharray="4 3" fill="none" dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </section>
           );
         })()}

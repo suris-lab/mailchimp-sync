@@ -160,6 +160,20 @@ export interface GrowthStats {
   dailyNew: { date: string; value: number }[]; // 120 entries, chronological
 }
 
+// Member trend — cumulative member counts over time
+export interface MemberTrendEntry {
+  date: string;       // "YYYY-MM-DD"
+  total: number;      // all qualifying members (excl non-member types)
+  resigned: number;   // subset with Resigned modifier
+  absent: number;     // subset with Absent modifier
+}
+
+export interface MemberTrendStats {
+  computed_at: string;
+  current: { total: number; resigned: number; absent: number; active: number };
+  daily: MemberTrendEntry[];  // chronological, up to 90 entries
+}
+
 // Mailchimp campaign categories
 export type CampaignCategory = "Weekly What's On" | "Member Notice" | "Standalone EDM";
 
