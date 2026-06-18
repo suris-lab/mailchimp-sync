@@ -6,7 +6,11 @@ import type { MemberTrendStats, MemberTrendEntry } from "@/lib/types";
 const KV_KEY = "sync:member_trend";
 const CACHE_TTL = 3600; // 1 hour
 
-const EXCLUDED_MEMBERSHIPS = ["non-members", "all staff", "gm", "reciprocal_club"];
+function isExcludedMembership(membership: string): boolean {
+  const m = (membership ?? "").toLowerCase().replace(/[_\-\s]+/g, "");
+  return (m.includes("non") && m.includes("member")) ||
+    m === "allstaff" || m === "gm" || m.includes("reciprocal");
+}
 
 function toISODate(raw: string): string | null {
   if (!raw) return null;
@@ -32,9 +36,7 @@ export async function GET(request: Request) {
   const contacts = await fetchSheetContacts();
 
   // Filter to qualifying members only (exclude non-member types)
-  const qualifying = contacts.filter(
-    (c) => !EXCLUDED_MEMBERSHIPS.includes((c.membership ?? "").toLowerCase()),
-  );
+  const qualifying = contacts.filter((c) => !isExcludedMembership(c.membership));
 
   const resigned = qualifying.filter(
     (c) => (c.membershipModifier ?? "").toLowerCase().includes("resigned"),
