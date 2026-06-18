@@ -74,7 +74,7 @@ export default function DashboardPage() {
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [historyOpen, setHistoryOpen] = useState(false);
   const [trendDays, setTrendDays] = useState<30 | 60 | 90>(90);
-  const [showTotal, setShowTotal] = useState(false);
+  const [showTotal, setShowTotal] = useState(true);
   const [showResigned, setShowResigned] = useState(false);
   const [showAbsent, setShowAbsent] = useState(false);
   const [showNonMember, setShowNonMember] = useState(false);
@@ -213,6 +213,15 @@ export default function DashboardPage() {
             { key: "nonmember", label: "Non-Member",   count: current?.non_member ?? 0, color: "#9ca3af", active: showNonMember, set: setShowNonMember },
           ];
 
+          // Dynamic Y-axis: zoom into the data range so small changes are visible
+          const allValues = chartData.flatMap((row) =>
+            Object.entries(row).filter(([k]) => k !== "date").map(([, v]) => Number(v)),
+          ).filter((n) => !isNaN(n));
+          const dataMin = Math.min(...allValues);
+          const dataMax = Math.max(...allValues);
+          const padding = Math.max(Math.ceil((dataMax - dataMin) * 0.3), 5);
+          const yDomain: [number, number] = [Math.max(0, dataMin - padding), dataMax + padding];
+
           return (
             <section className="rounded-2xl bg-white dark:bg-black border border-gray-200 dark:border-gray-800 overflow-hidden">
               {/* Big number */}
@@ -294,7 +303,10 @@ export default function DashboardPage() {
                         axisLine={false} tickLine={false}
                         interval={trendDays <= 30 ? 6 : trendDays <= 60 ? 13 : 14}
                       />
-                      <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={44} />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={44}
+                        domain={yDomain} allowDataOverflow
+                      />
                       <Tooltip
                         contentStyle={{ backgroundColor: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }}
                         labelStyle={{ color: "#6b7280", fontSize: 11 }}
