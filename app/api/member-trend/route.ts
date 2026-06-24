@@ -3,7 +3,7 @@ import { kvGet, kvSet } from "@/lib/kv";
 import { fetchSheetContacts } from "@/tools/google-sheets";
 import type { MemberTrendStats, MemberTrendEntry } from "@/lib/types";
 
-const KV_KEY = "sync:member_trend_v6";
+const KV_KEY = "sync:member_trend_v7";
 const CACHE_TTL = 3600; // 1 hour
 
 function isNonMember(membership: string): boolean {
