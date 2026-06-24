@@ -192,7 +192,7 @@ export default function DashboardPage() {
           };
 
           const tabs = [
-            { key: "total"    as const, label: "Total Members", count: current ? current.total - current.resigned + 204 : 0, color: "#EB0029" },
+            { key: "total"    as const, label: "Total Members", count: current ? current.active + 204 : 0, color: "#EB0029" },
             { key: "resigned" as const, label: "Resigned",      count: current?.resigned ?? 0,                               color: "#374151" },
             { key: "absent"   as const, label: "Absent",         count: current?.absent ?? 0,                                 color: "#6b7280" },
           ];
@@ -206,7 +206,7 @@ export default function DashboardPage() {
             const absent   = d.absent   ?? 0;
             return {
               date: fmtDate(d.date),
-              "Total Members": active + resigned + absent + 204,
+              "Total Members": active + 204,
               "Resigned": resigned,
               "Absent": absent,
             };
@@ -230,7 +230,7 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <p className="text-7xl sm:text-8xl font-bold tabular-nums leading-none text-hebe-red" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
-                      {(current.total - current.resigned + 204).toLocaleString()}
+                      {(current.active + 204).toLocaleString()}
                     </p>
                     <p className="text-sm font-bold tracking-[0.2em] uppercase text-gray-900 dark:text-white mt-4" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                       Total Members

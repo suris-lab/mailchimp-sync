@@ -3,7 +3,7 @@ import { kvGet, kvSet } from "@/lib/kv";
 import { fetchSheetContacts } from "@/tools/google-sheets";
 import type { MemberTrendStats, MemberTrendEntry } from "@/lib/types";
 
-const KV_KEY = "sync:member_trend_v3";
+const KV_KEY = "sync:member_trend_v4";
 const CACHE_TTL = 3600; // 1 hour
 
 function isNonMember(membership: string): boolean {
@@ -44,11 +44,19 @@ export async function GET(request: Request) {
   const qualifying = contacts.filter((c) => !isExcludedMembership(c.membership));
   const nonMembers = contacts.filter((c) => isNonMember(c.membership));
 
-  const resignedN = qualifying.filter(
+  // Count resigned/absent from ALL contacts (not just qualifying) so the numbers
+  // match exactly what the sheet shows — a GM who resigned still counts as resigned.
+  const resignedAll = contacts.filter(
     (c) => (c.membershipModifier ?? "").toLowerCase().includes("resigned"),
   ).length;
-  const absentN = qualifying.filter(
+  const absentAll = contacts.filter(
     (c) => (c.membershipModifier ?? "").toLowerCase().includes("absent"),
+  ).length;
+
+  // For the hero "Total Members" math, only subtract resigned within qualifying
+  // to avoid double-excluding members who are already filtered by membership type.
+  const resignedInQual = qualifying.filter(
+    (c) => (c.membershipModifier ?? "").toLowerCase().includes("resigned"),
   ).length;
 
   // Tag each contact with flags + parsed date for cumulative trend
@@ -63,8 +71,8 @@ export async function GET(request: Request) {
     tagged.push({
       date,
       qualifying: qual,
-      isResigned: qual && mod.includes("resigned"),
-      isAbsent: qual && mod.includes("absent"),
+      isResigned: mod.includes("resigned"),
+      isAbsent: mod.includes("absent"),
       isNonMember: isNonMember(c.membership),
     });
   }
@@ -93,9 +101,9 @@ export async function GET(request: Request) {
 
   const current = {
     total: qualifying.length,
-    active: qualifying.length - resignedN - absentN,
-    resigned: resignedN,
-    absent: absentN,
+    active: qualifying.length - resignedInQual,
+    resigned: resignedAll,
+    absent: absentAll,
     non_member: nonMembers.length,
   };
 
