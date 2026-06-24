@@ -76,9 +76,7 @@ export default function DashboardPage() {
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [historyOpen, setHistoryOpen] = useState(false);
   const [trendDays, setTrendDays] = useState<30 | 60 | 90>(90);
-  const [showResigned, setShowResigned] = useState(false);
-  const [showAbsent, setShowAbsent] = useState(false);
-  const [showNonMember, setShowNonMember] = useState(false);
+  const [trendTab, setTrendTab] = useState<"total" | "resigned" | "absent">("total");
 
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
   const { data: audienceData, isLoading: audienceLoading } = useAudienceStats();
@@ -193,34 +191,31 @@ export default function DashboardPage() {
             return `${MONTHS[m]} ${d}`;
           };
 
-          const chartData = sliced.map((d) => {
-            const active    = d.active     ?? 0;
-            const resigned  = d.resigned   ?? 0;
-            const absent    = d.absent     ?? 0;
-            const nonMember = d.non_member ?? 0;
-            const total     = active + resigned + absent + 204; // +204 absent members not on GSheets
-            const row: Record<string, string | number> = {
-              date: fmtDate(d.date),
-              "Total Members": total,
-            };
-            if (showResigned)  row["Resigned"]   = resigned;
-            if (showAbsent)    row["Absent"]     = absent;
-            if (showNonMember) row["Non-Member"] = nonMember;
-            return row;
-          });
-
-          const toggles: { key: string; label: string; count: number; color: string; active: boolean; set: (v: boolean) => void }[] = [
-            { key: "resigned",  label: "Resigned",    count: current?.resigned ?? 0,   color: "#EB0029", active: showResigned,  set: setShowResigned },
-            { key: "absent",    label: "Absent",       count: current?.absent ?? 0,     color: "#6b7280", active: showAbsent,    set: setShowAbsent },
-            { key: "nonmember", label: "Non-Member",   count: current?.non_member ?? 0, color: "#9ca3af", active: showNonMember, set: setShowNonMember },
+          const tabs = [
+            { key: "total"    as const, label: "Total Members", count: current ? current.total - current.resigned + 204 : 0, color: "#EB0029" },
+            { key: "resigned" as const, label: "Resigned",      count: current?.resigned ?? 0,                               color: "#374151" },
+            { key: "absent"   as const, label: "Absent",         count: current?.absent ?? 0,                                 color: "#6b7280" },
           ];
 
-          // Dynamic Y-axis: zoom into the data range so small changes are visible
-          const allValues = chartData.flatMap((row) =>
-            Object.entries(row).filter(([k]) => k !== "date").map(([, v]) => Number(v)),
-          ).filter((n) => !isNaN(n));
-          const dataMin = Math.min(...allValues);
-          const dataMax = Math.max(...allValues);
+          const dataKey = tabs.find((t) => t.key === trendTab)!.label;
+          const lineColor = tabs.find((t) => t.key === trendTab)!.color;
+
+          const chartData = sliced.map((d) => {
+            const active   = d.active   ?? 0;
+            const resigned = d.resigned ?? 0;
+            const absent   = d.absent   ?? 0;
+            return {
+              date: fmtDate(d.date),
+              "Total Members": active + resigned + absent + 204,
+              "Resigned": resigned,
+              "Absent": absent,
+            };
+          });
+
+          // Dynamic Y-axis: zoom into the selected series so small changes are visible
+          const values = chartData.map((row) => Number((row as Record<string, unknown>)[dataKey])).filter((n) => !isNaN(n));
+          const dataMin = Math.min(...values);
+          const dataMax = Math.max(...values);
           const padding = Math.max(Math.ceil((dataMax - dataMin) * 0.3), 5);
           const yDomain: [number, number] = [Math.max(0, dataMin - padding), dataMax + padding];
 
@@ -250,21 +245,20 @@ export default function DashboardPage() {
               {/* Trend chart */}
               {chartData.length > 0 && (
                 <div className="px-4 pb-5">
-                  {/* Controls row: toggles + date range */}
+                  {/* Controls row: tabs + date range */}
                   <div className="flex items-center justify-between mb-4 px-2 flex-wrap gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {toggles.map((t) => (
+                    <div className="flex gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5">
+                      {tabs.map((t) => (
                         <button
                           key={t.key}
-                          onClick={() => t.set(!t.active)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                            t.active
-                              ? "border-transparent"
-                              : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+                          onClick={() => setTrendTab(t.key)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                            trendTab === t.key
+                              ? "text-white"
+                              : "text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300"
                           }`}
-                          style={t.active ? { backgroundColor: t.color + "20", color: t.color, borderColor: t.color + "40" } : {}}
+                          style={trendTab === t.key ? { backgroundColor: t.color } : {}}
                         >
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color, opacity: t.active ? 1 : 0.35 }} />
                           {t.label}
                           <span className="tabular-nums font-black text-sm">{t.count.toLocaleString()}</span>
                         </button>
@@ -290,9 +284,9 @@ export default function DashboardPage() {
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                       <defs>
-                        <linearGradient id="gradActive" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#EB0029" stopOpacity={0.12} />
-                          <stop offset="95%" stopColor="#EB0029" stopOpacity={0} />
+                        <linearGradient id="gradLine" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={lineColor} stopOpacity={0.12} />
+                          <stop offset="95%" stopColor={lineColor} stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} className="dark:[&>line]:stroke-gray-800" />
@@ -310,29 +304,10 @@ export default function DashboardPage() {
                         labelStyle={{ color: "#6b7280", fontSize: 11 }}
                         itemStyle={{ padding: 0 }}
                       />
-                      {/* Total Members — always visible, main line */}
                       <Area
-                        type="monotone" dataKey="Total Members" stroke="#EB0029" strokeWidth={2}
-                        fill="url(#gradActive)" dot={false}
+                        type="monotone" dataKey={dataKey} stroke={lineColor} strokeWidth={2}
+                        fill="url(#gradLine)" dot={false}
                       />
-                      {showResigned && (
-                        <Area
-                          type="monotone" dataKey="Resigned" stroke="#EB0029" strokeWidth={1.5}
-                          strokeDasharray="6 3" fill="none" dot={false} opacity={0.6}
-                        />
-                      )}
-                      {showAbsent && (
-                        <Area
-                          type="monotone" dataKey="Absent" stroke="#6b7280" strokeWidth={1.5}
-                          strokeDasharray="4 3" fill="none" dot={false}
-                        />
-                      )}
-                      {showNonMember && (
-                        <Area
-                          type="monotone" dataKey="Non-Member" stroke="#9ca3af" strokeWidth={1.5}
-                          strokeDasharray="2 2" fill="none" dot={false}
-                        />
-                      )}
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
