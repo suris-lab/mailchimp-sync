@@ -19,7 +19,7 @@ function isExcludedMembership(membership: string): boolean {
 
 function toISODate(raw: string): string | null {
   if (!raw) return null;
-  const trimmed = raw.trim();
+  const trimmed = raw.trim().split(" ")[0]; // strip time component (e.g. "1/23/2026 19:58:34" → "1/23/2026")
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
   const parts = trimmed.split("/");
   if (parts.length === 3) {

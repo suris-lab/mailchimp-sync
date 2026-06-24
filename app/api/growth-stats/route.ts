@@ -9,10 +9,8 @@ const CACHE_TTL = 3600; // 1 hour
 // Parse "M/D/YYYY", "MM/DD/YYYY", or ISO prefix → "YYYY-MM-DD". Returns null on bad input.
 function toISODate(raw: string): string | null {
   if (!raw) return null;
-  const trimmed = raw.trim();
-  // ISO format
+  const trimmed = raw.trim().split(" ")[0]; // strip time component
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
-  // M/D/YYYY
   const parts = trimmed.split("/");
   if (parts.length === 3) {
     const [m, d, y] = parts.map(Number);
