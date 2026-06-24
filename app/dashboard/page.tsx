@@ -161,29 +161,32 @@ export default function DashboardPage() {
             return `${MONTHS[m]} ${d}`;
           };
 
+          // For Resigned/Absent tabs: cumulative new events within the selected period
+          let cumResigned = 0;
+          let cumAbsent = 0;
+          const periodResigned = sliced.map((d) => { cumResigned += d.new_resigned ?? 0; return cumResigned; });
+          const periodAbsent   = sliced.map((d) => { cumAbsent   += d.new_absent   ?? 0; return cumAbsent; });
+          const periodResignedTotal = periodResigned[periodResigned.length - 1] ?? 0;
+          const periodAbsentTotal   = periodAbsent[periodAbsent.length - 1] ?? 0;
+
           const tabs = [
-            { key: "total"    as const, label: "Total Members", count: current ? current.active + 204 : 0, color: "#EB0029" },
-            { key: "resigned" as const, label: "Resigned",      count: current?.resigned ?? 0,                               color: "#374151" },
-            { key: "absent"   as const, label: "Absent",         count: current?.absent ?? 0,                                 color: "#6b7280" },
+            { key: "total"    as const, label: "Total Members",        count: current ? current.active + 204 : 0, color: "#EB0029" },
+            { key: "resigned" as const, label: `Resigned (${trendDays}d)`, count: periodResignedTotal,               color: "#374151" },
+            { key: "absent"   as const, label: `Absent (${trendDays}d)`,   count: periodAbsentTotal,                 color: "#6b7280" },
           ];
 
-          const dataKey = tabs.find((t) => t.key === trendTab)!.label;
+          const dataKey = trendTab === "total" ? "Total Members" : trendTab === "resigned" ? "New Resigned" : "New Absent";
           const lineColor = tabs.find((t) => t.key === trendTab)!.color;
 
-          const chartData = sliced.map((d) => {
-            const active   = d.active   ?? 0;
-            const resigned = d.resigned ?? 0;
-            const absent   = d.absent   ?? 0;
-            return {
-              date: fmtDate(d.date),
-              "Total Members": active + 204,
-              "Resigned": resigned,
-              "Absent": absent,
-            };
-          });
+          const chartData = sliced.map((d, i) => ({
+            date: fmtDate(d.date),
+            "Total Members": (d.active ?? 0) + 204,
+            "New Resigned": periodResigned[i],
+            "New Absent": periodAbsent[i],
+          }));
 
           // Dynamic Y-axis: zoom into the selected series so small changes are visible
-          const values = chartData.map((row) => Number((row as Record<string, unknown>)[dataKey])).filter((n) => !isNaN(n));
+          const values = chartData.map((row) => Number((row as Record<string, string | number>)[dataKey])).filter((n) => !isNaN(n));
           const dataMin = Math.min(...values);
           const dataMax = Math.max(...values);
           const padding = Math.max(Math.ceil((dataMax - dataMin) * 0.3), 5);

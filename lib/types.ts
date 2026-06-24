@@ -169,9 +169,11 @@ export interface GrowthStats {
 export interface MemberTrendEntry {
   date: string;        // "YYYY-MM-DD"
   active: number;      // qualifying members minus resigned & absent
-  resigned: number;    // subset with Resigned modifier
-  absent: number;      // subset with Absent modifier
+  resigned: number;    // cumulative total resigned
+  absent: number;      // cumulative total absent
   non_member: number;  // contacts with Non_Member membership type
+  new_resigned: number; // newly recorded resigned on this day (by updatedAt)
+  new_absent: number;   // newly recorded absent on this day (by updatedAt)
 }
 
 export interface MemberTrendStats {
