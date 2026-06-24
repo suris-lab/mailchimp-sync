@@ -3,8 +3,18 @@ import { readFileSync } from "fs";
 
 const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
 
-// Semver from package.json — bump with npm run release:major/minor/patch
-const appVersion = pkg.version;
+// Major.minor from package.json (bump with npm run release:major/minor).
+// Patch = .buildnumber file, auto-incremented by pre-push git hook.
+const buildNumber = (() => {
+  try {
+    return readFileSync("./.buildnumber", "utf-8").trim();
+  } catch {
+    return "0";
+  }
+})();
+
+const [major, minor] = pkg.version.split(".");
+const appVersion = `${major}.${minor}.${buildNumber}`;
 
 const securityHeaders = [
   { key: "X-Content-Type-Options",    value: "nosniff" },
