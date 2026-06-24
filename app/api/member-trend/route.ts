@@ -31,9 +31,11 @@ function toISODate(raw: string): string | null {
 }
 
 export async function GET(request: Request) {
-  const bust = new URL(request.url).searchParams.has("bust");
+  const params = new URL(request.url).searchParams;
+  const bust  = params.has("bust");
+  const debug = params.has("debug");
 
-  if (!bust) {
+  if (!bust && !debug) {
     const cached = await kvGet<MemberTrendStats>(KV_KEY);
     if (cached) return NextResponse.json(cached);
   }
@@ -50,6 +52,38 @@ export async function GET(request: Request) {
   const absentN = qualifying.filter(
     (c) => (c.membershipModifier ?? "").toLowerCase().includes("absent"),
   ).length;
+
+  // Debug: show raw resigned/absent members with their date fields
+  if (debug) {
+    const resignedContacts = qualifying
+      .filter((c) => (c.membershipModifier ?? "").toLowerCase().includes("resigned"))
+      .map((c) => ({
+        memberId: c.memberId,
+        fullName: c.fullName,
+        membership: c.membership,
+        modifier: c.membershipModifier,
+        createdAt_raw: c.createdAt,
+        updatedAt_raw: c.updatedAt,
+        createdAt_parsed: toISODate(c.createdAt),
+        updatedAt_parsed: toISODate(c.updatedAt),
+      }));
+    const absentContacts = qualifying
+      .filter((c) => (c.membershipModifier ?? "").toLowerCase().includes("absent"))
+      .map((c) => ({
+        memberId: c.memberId,
+        fullName: c.fullName,
+        modifier: c.membershipModifier,
+        updatedAt_raw: c.updatedAt,
+        updatedAt_parsed: toISODate(c.updatedAt),
+      }));
+    return NextResponse.json({
+      total_qualifying: qualifying.length,
+      resigned_count: resignedContacts.length,
+      absent_count: absentContacts.length,
+      resigned_members: resignedContacts,
+      absent_members: absentContacts.slice(0, 20),
+    });
+  }
 
   // Tag each contact with flags + parsed date for cumulative trend
   type Tagged = { date: string; qualifying: boolean; isResigned: boolean; isAbsent: boolean; isNonMember: boolean };
