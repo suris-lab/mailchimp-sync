@@ -76,6 +76,8 @@ async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> 
     tags: { interest, facility, skill, administrative },
   };
 
+  const existing = await kvGet<AudienceStats>("sync:audience_stats");
+  if (existing) await kvSet("sync:audience_stats_prev", existing);
   await kvSet("sync:audience_stats", stats);
 }
 

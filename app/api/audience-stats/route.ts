@@ -3,6 +3,9 @@ import { kvGet } from "@/lib/kv";
 import type { AudienceStats } from "@/lib/types";
 
 export async function GET() {
-  const stats = await kvGet<AudienceStats>("sync:audience_stats");
-  return NextResponse.json(stats ?? null);
+  const [stats, prev] = await Promise.all([
+    kvGet<AudienceStats>("sync:audience_stats"),
+    kvGet<AudienceStats>("sync:audience_stats_prev"),
+  ]);
+  return NextResponse.json({ current: stats ?? null, previous: prev ?? null });
 }

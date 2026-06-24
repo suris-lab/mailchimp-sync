@@ -151,6 +151,11 @@ export interface AudienceStats {
   };
 }
 
+export interface AudienceStatsResponse {
+  current: AudienceStats | null;
+  previous: AudienceStats | null;
+}
+
 // Daily new-contact growth data — current window + previous window for comparison
 export interface GrowthStats {
   last30Days: number;   // new contacts in most-recent 30 days

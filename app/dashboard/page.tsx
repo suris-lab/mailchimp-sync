@@ -10,9 +10,11 @@ import {
 import { DateRangePicker } from "@/components/layout/DateRangePicker";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { SyncLogTable } from "@/components/sync/SyncLogTable";
+import { SyncErrorSparkline } from "@/components/sync/SyncErrorSparkline";
 import { ManualSyncButton } from "@/components/sync/ManualSyncButton";
 import { AudienceStatsPanel } from "@/components/stats/AudienceStatsPanel";
 import { CampaignPanel } from "@/components/campaigns/CampaignPanel";
+import { HealthPulseBar } from "@/components/dashboard/HealthPulseBar";
 import { useSyncLogs } from "@/hooks/useSyncLogs";
 import { useAudienceStats } from "@/hooks/useAudienceStats";
 import { useBackupStatus } from "@/hooks/useBackupStatus";
@@ -79,7 +81,9 @@ export default function DashboardPage() {
   const [showNonMember, setShowNonMember] = useState(false);
 
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
-  const { data: audienceStats, isLoading: audienceLoading } = useAudienceStats();
+  const { data: audienceData, isLoading: audienceLoading } = useAudienceStats();
+  const audienceStats = audienceData?.current ?? null;
+  const audiencePrev  = audienceData?.previous ?? null;
   const lastBackupAt = useBackupStatus();
   const { data: membershipStats } = useMembershipStats();
   const { data: automationsData, isLoading: automationsLoading } = useMailchimpAutomations();
@@ -337,6 +341,23 @@ export default function DashboardPage() {
           );
         })()}
 
+        {/* ── Health Pulse ── */}
+        <HealthPulseBar
+          trendDelta={(() => {
+            const d = (trendData?.daily ?? []).slice(-trendDays);
+            if (d.length < 2) return null;
+            const first = (d[0].active ?? 0) + (d[0].resigned ?? 0) + (d[0].absent ?? 0);
+            const last  = (d[d.length - 1].active ?? 0) + (d[d.length - 1].resigned ?? 0) + (d[d.length - 1].absent ?? 0);
+            return last - first;
+          })()}
+          lastSync={logsData?.logs?.[0] ? {
+            status: logsData.logs[0].status,
+            ago: timeAgo(logsData.logs[0].timestamp),
+          } : null}
+          runningAutomations={runningCount}
+          overdueCount={membershipStats?.overdueFollowUps.count ?? 0}
+        />
+
         {/* ── Operations Hub ── */}
         <section>
 
@@ -379,8 +400,8 @@ export default function DashboardPage() {
 
             {/* Column headers */}
             {!automationsLoading && automations.length > 0 && (
-              <div className="px-5 py-2 grid grid-cols-[1fr_80px_80px_70px_70px_70px] gap-3 border-b border-gray-50 dark:border-gray-800/60">
-                {["Name", "Type", "Status", "Started", "In Progress", "Completed"].map((h, i) => (
+              <div className="px-5 py-2 grid grid-cols-[1fr_80px_80px_70px_70px_70px_72px] gap-3 border-b border-gray-50 dark:border-gray-800/60">
+                {["Name", "Type", "Status", "Started", "In Progress", "Completed", "Rate"].map((h, i) => (
                   <span
                     key={h}
                     className={`text-[9px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 ${i >= 3 ? "text-right" : ""}`}
@@ -405,7 +426,7 @@ export default function DashboardPage() {
                 {automations.map((a) => (
                   <div
                     key={a.id}
-                    className="grid grid-cols-[1fr_80px_80px_70px_70px_70px] gap-3 items-center
+                    className="grid grid-cols-[1fr_80px_80px_70px_70px_70px_72px] gap-3 items-center
                                px-5 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
                   >
                     {/* Name + dot */}
@@ -443,6 +464,16 @@ export default function DashboardPage() {
                     <span className="text-[11px] tabular-nums text-gray-600 dark:text-gray-300 text-right">
                       {fmtCount(a.completed)}
                     </span>
+                    {/* Completion rate */}
+                    <span className={`text-[11px] tabular-nums text-right font-semibold ${
+                      a.started && a.started > 0 && Math.round(((a.completed ?? 0) / a.started) * 100) < 50
+                        ? "text-hebe-red"
+                        : "text-gray-600 dark:text-gray-300"
+                    }`}>
+                      {a.started && a.started > 0
+                        ? `${Math.round(((a.completed ?? 0) / a.started) * 100)}%`
+                        : "—"}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -465,23 +496,33 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-start gap-8">
               {[
-                { count: membershipStats?.overdueFollowUps.count ?? 0,      label: "Overdue" },
-                { count: membershipStats?.upcomingBirthdays30.count ?? 0,   label: "Birthdays" },
-                { count: membershipStats?.upcomingAgeTier90.count ?? 0,     label: "Age-Tier" },
-                { count: membershipStats?.upcomingSAEligible180.count ?? 0, label: "SA Eligible" },
-                { count: membershipStats?.upcomingTermExpiry120.count ?? 0, label: "Term Expiry" },
-              ].map(({ count, label }) => (
-                <div key={label} className="text-center min-w-[48px]">
-                  <p className={`text-2xl font-black tabular-nums leading-none ${
-                    count > 0 ? "text-gray-900 dark:text-white" : "text-gray-200 dark:text-gray-700"
-                  }`}>
-                    {count}
-                  </p>
-                  <p className="text-[9px] font-semibold text-gray-400 mt-2 uppercase tracking-wider whitespace-nowrap">
-                    {label}
-                  </p>
-                </div>
-              ))}
+                { count: membershipStats?.overdueFollowUps.count ?? 0,      label: "Overdue",      contacts: membershipStats?.overdueFollowUps.contacts ?? [],      isOverdue: true },
+                { count: membershipStats?.upcomingBirthdays30.count ?? 0,   label: "Birthdays",    contacts: membershipStats?.upcomingBirthdays30.contacts ?? [],   isOverdue: false },
+                { count: membershipStats?.upcomingAgeTier90.count ?? 0,     label: "Age-Tier",     contacts: membershipStats?.upcomingAgeTier90.contacts ?? [],     isOverdue: false },
+                { count: membershipStats?.upcomingSAEligible180.count ?? 0, label: "SA Eligible",  contacts: membershipStats?.upcomingSAEligible180.contacts ?? [], isOverdue: false },
+                { count: membershipStats?.upcomingTermExpiry120.count ?? 0, label: "Term Expiry",  contacts: membershipStats?.upcomingTermExpiry120.contacts ?? [], isOverdue: false },
+              ].map(({ count, label, contacts, isOverdue }) => {
+                const thisWeek = isOverdue
+                  ? contacts.filter((c) => c.daysUntil >= -7).length
+                  : contacts.filter((c) => c.daysUntil >= 0 && c.daysUntil <= 7).length;
+                return (
+                  <div key={label} className="text-center min-w-[48px]">
+                    <p className={`text-2xl font-black tabular-nums leading-none ${
+                      count > 0 ? "text-gray-900 dark:text-white" : "text-gray-200 dark:text-gray-700"
+                    }`}>
+                      {count}
+                    </p>
+                    <p className="text-[9px] font-semibold text-gray-400 mt-2 uppercase tracking-wider whitespace-nowrap">
+                      {label}
+                    </p>
+                    {thisWeek > 0 && (
+                      <p className="text-[9px] font-bold text-hebe-red mt-1 tabular-nums">
+                        {thisWeek} {isOverdue ? "past 7d" : "this week"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -493,7 +534,7 @@ export default function DashboardPage() {
             title="Audience Insights"
             subtitle="Computed from the sheet on each sync"
           />
-          <AudienceStatsPanel stats={audienceStats} isLoading={audienceLoading} />
+          <AudienceStatsPanel stats={audienceStats} previous={audiencePrev} isLoading={audienceLoading} />
         </section>
 
         {/* ── Sync History ── */}
@@ -505,6 +546,7 @@ export default function DashboardPage() {
               onToggle: () => setHistoryOpen((v) => !v),
             }}
           />
+          <SyncErrorSparkline logs={(logsData?.logs ?? []).slice(0, 10)} />
           {historyOpen && (
             <div className="mb-4 flex justify-end">
               <DateRangePicker

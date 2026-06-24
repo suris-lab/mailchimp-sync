@@ -239,7 +239,7 @@ function TagPieChart({ data }: { data: Record<string, number> }) {
 }
 
 // ── Membership donut — with non-member toggle (default: hidden) ───────────────
-function MembershipPieChart({ data }: { data: Record<string, number> }) {
+function MembershipPieChart({ data, prevData }: { data: Record<string, number>; prevData?: Record<string, number> }) {
   const tc = useThemeColors();
   // Non-members excluded by default
   const [excludeNonMembers, setExcludeNonMembers] = useState(true);
@@ -311,7 +311,10 @@ function MembershipPieChart({ data }: { data: Record<string, number> }) {
               iconSize={6}
               wrapperStyle={{ paddingTop: 8, fontSize: 10 }}
               formatter={(value: string) => (
-                <span style={{ color: tc.labelColor, fontSize: 10 }}>{value}</span>
+                <span style={{ color: tc.labelColor, fontSize: 10 }}>
+                  {value}
+                  {prevData && <DeltaBadge current={data[value] ?? 0} prev={prevData[value]} />}
+                </span>
               )}
             />
           </PieChart>
@@ -410,12 +413,28 @@ function InteractiveBarSection({
 // ── Main panel ────────────────────────────────────────────────────────────────
 interface AudienceStatsPanelProps {
   stats: AudienceStats | null | undefined;
+  previous?: AudienceStats | null;
   isLoading: boolean;
+}
+
+function DeltaBadge({ current, prev }: { current: number; prev: number | undefined }) {
+  if (prev === undefined) return null;
+  const delta = current - prev;
+  if (delta === 0) return null;
+  return (
+    <span className={`ml-1.5 inline-block text-[9px] font-bold tabular-nums px-1.5 py-0.5 rounded-full ${
+      delta > 0
+        ? "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+        : "bg-red-50 dark:bg-red-950/30 text-hebe-red"
+    }`}>
+      {delta > 0 ? `+${delta}` : delta}
+    </span>
+  );
 }
 
 const skeletonCls = "card animate-pulse";
 
-export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps) {
+export function AudienceStatsPanel({ stats, previous, isLoading }: AudienceStatsPanelProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -494,7 +513,7 @@ export function AudienceStatsPanel({ stats, isLoading }: AudienceStatsPanelProps
         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 mb-1">
           Name and % on each slice · hover for contact count
         </p>
-        <MembershipPieChart data={stats.membership} />
+        <MembershipPieChart data={stats.membership} prevData={previous?.membership} />
       </div>
 
       {/* ── Interest — full-width bar chart (red, differentiated) ── */}
