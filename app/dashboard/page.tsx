@@ -96,7 +96,7 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 border-b border-gray-200 dark:border-gray-800
                          bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm px-4 sm:px-6 py-3">
-        <div className="mx-auto max-w-6xl flex items-center justify-between gap-4">
+        <div className="mx-auto flex items-center justify-between gap-4">
 
           {/* Brand */}
           <div className="flex items-center gap-3 min-w-0">
@@ -147,7 +147,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+      <main className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
         {/* ── Active Members Hero + Trend ── */}
         {(() => {
@@ -219,13 +219,13 @@ export default function DashboardPage() {
               {chartData.length > 0 && (
                 <div className="px-4 pb-5">
                   {/* Controls row: tabs + date range */}
-                  <div className="flex items-center justify-between mb-4 px-2 flex-wrap gap-2">
-                    <div className="flex gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 px-2 gap-2">
+                    <div className="flex gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5 overflow-x-auto">
                       {tabs.map((t) => (
                         <button
                           key={t.key}
                           onClick={() => setTrendTab(t.key)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap ${
                             trendTab === t.key
                               ? "text-white"
                               : "text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300"
@@ -233,16 +233,16 @@ export default function DashboardPage() {
                           style={trendTab === t.key ? { backgroundColor: t.color } : {}}
                         >
                           {t.label}
-                          <span className="tabular-nums font-black text-sm">{t.count.toLocaleString()}</span>
+                          <span className="tabular-nums font-black text-xs sm:text-sm">{t.count.toLocaleString()}</span>
                         </button>
                       ))}
                     </div>
-                    <div className="flex gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5">
+                    <div className="flex gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5 self-end sm:self-auto">
                       {([30, 60, 90] as const).map((d) => (
                         <button
                           key={d}
                           onClick={() => setTrendDays(d)}
-                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                          className={`px-2.5 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition-colors ${
                             trendDays === d
                               ? "bg-hebe-red text-white"
                               : "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white"
