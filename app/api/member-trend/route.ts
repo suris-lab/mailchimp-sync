@@ -99,7 +99,7 @@ export async function GET(request: Request) {
   for (const c of qualifying) {
     const mod = (c.membershipModifier ?? "").toLowerCase();
     if (!mod.includes("resigned") && !mod.includes("absent")) continue;
-    const eventDate = toISODate(c.updatedAt) || toISODate(c.createdAt);
+    const eventDate = toISODate(c.updatedAt);
     if (!eventDate || !dateSet.has(eventDate)) continue;
     if (mod.includes("resigned")) newResignedPerDay[eventDate]++;
     if (mod.includes("absent"))   newAbsentPerDay[eventDate]++;
