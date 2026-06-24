@@ -78,21 +78,17 @@ export async function GET(request: Request) {
     dates.push(d.toISOString().slice(0, 10));
   }
 
-  // Count additions per date from createdAt (for total members trend)
+  // Count new qualifying members per date from createdAt (for total members trend)
   const dateSet = new Set(dates);
-  const added: Record<string, { qual: number; resigned: number; absent: number; nonMember: number }> = {};
-  for (const date of dates) added[date] = { qual: 0, resigned: 0, absent: 0, nonMember: 0 };
+  const addedQual: Record<string, number> = {};
+  for (const date of dates) addedQual[date] = 0;
   for (const t of tagged) {
     if (!dateSet.has(t.date)) continue;
-    const a = added[t.date];
-    if (t.qualifying) a.qual++;
-    if (t.isResigned) a.resigned++;
-    if (t.isAbsent)   a.absent++;
-    if (t.isNonMember) a.nonMember++;
+    if (t.qualifying) addedQual[t.date]++;
   }
 
-  // Count NEW resigned/absent events per day using updatedAt (proxy for when modifier changed).
-  // Falls back to createdAt if updatedAt is empty.
+  // Count resigned/absent events per day using updatedAt (when modifier was changed).
+  // createdAt is irrelevant — a member created in 2020 may resign in 2026.
   const newResignedPerDay: Record<string, number> = {};
   const newAbsentPerDay: Record<string, number> = {};
   for (const date of dates) { newResignedPerDay[date] = 0; newAbsentPerDay[date] = 0; }
@@ -121,15 +117,17 @@ export async function GET(request: Request) {
 
   const daily: MemberTrendEntry[] = new Array(dates.length);
   for (let i = dates.length - 1; i >= 0; i--) {
+    const nr = newResignedPerDay[dates[i]];
+    const na = newAbsentPerDay[dates[i]];
     daily[i] = {
       date: dates[i], active: rActive, resigned: rResigned, absent: rAbsent, non_member: rNonMember,
-      new_resigned: newResignedPerDay[dates[i]], new_absent: newAbsentPerDay[dates[i]],
+      new_resigned: nr, new_absent: na,
     };
-    const a = added[dates[i]];
-    rActive    -= (a.qual - a.resigned - a.absent);
-    rResigned  -= a.resigned;
-    rAbsent    -= a.absent;
-    rNonMember -= a.nonMember;
+    // Walk backwards: subtract today's new members, add back today's resignations/absences
+    rActive    -= (addedQual[dates[i]] - nr - na);
+    rResigned  -= nr;
+    rAbsent    -= na;
+    rNonMember -= 0; // non-member changes not tracked by updatedAt
   }
 
   const stats: MemberTrendStats = {
