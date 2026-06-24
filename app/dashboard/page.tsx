@@ -75,7 +75,7 @@ export default function DashboardPage() {
   const [start, setStart] = useState(daysAgo(29));
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [trendDays, setTrendDays] = useState<30 | 60 | 90>(90);
+  const [trendDays, setTrendDays] = useState<30 | 60 | 90>(30);
   const [trendTab, setTrendTab] = useState<"total" | "resigned" | "absent">("total");
 
   const { data: logsData, isLoading: logsLoading } = useSyncLogs(start, end);
