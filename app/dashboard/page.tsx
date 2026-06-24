@@ -121,57 +121,27 @@ export default function DashboardPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/membership"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
-                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
-                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
-                         transition-colors"
-            >
-              <Users size={13} />
-              <span>Membership</span>
-            </Link>
-            <Link
-              href="/survey"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
-                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
-                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
-                         transition-colors"
-            >
-              <ClipboardList size={13} />
-              <span>Survey</span>
-            </Link>
-            <Link
-              href="/analysis"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
-                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
-                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
-                         transition-colors"
-            >
-              <BarChart2 size={13} />
-              <span>Analysis</span>
-            </Link>
-            <Link
-              href="/studio"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
-                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
-                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
-                         transition-colors"
-            >
-              <Sparkles size={13} />
-              <span>AI Studio</span>
-            </Link>
-            <Link
-              href="/settings"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
-                         px-2.5 py-2 text-xs text-gray-500 dark:text-gray-400
-                         hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
-                         transition-colors"
-            >
-              <Settings size={13} />
-              <span>Settings</span>
-            </Link>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {[
+              { href: "/membership", icon: <Users size={13} />,         label: "Membership" },
+              { href: "/survey",     icon: <ClipboardList size={13} />, label: "Survey" },
+              { href: "/analysis",   icon: <BarChart2 size={13} />,     label: "Analysis" },
+              { href: "/studio",     icon: <Sparkles size={13} />,      label: "AI Studio" },
+              { href: "/settings",   icon: <Settings size={13} />,      label: "Settings" },
+            ].map(({ href, icon, label }) => (
+              <Link
+                key={href}
+                href={href}
+                title={label}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700
+                           px-2 py-2 lg:px-2.5 text-xs text-gray-500 dark:text-gray-400
+                           hover:border-hebe-red hover:text-hebe-red dark:hover:border-hebe-red dark:hover:text-hebe-red
+                           transition-colors"
+              >
+                {icon}
+                <span className="hidden lg:inline">{label}</span>
+              </Link>
+            ))}
             <ManualSyncButton />
           </div>
         </div>
