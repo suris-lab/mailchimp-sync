@@ -164,10 +164,22 @@ export async function GET(request: Request) {
     rNonMember -= 0; // non-member changes not tracked by updatedAt
   }
 
+  // Build resigned/absent member lists with parsed updatedAt, sorted newest first
+  const resignedMembers = qualifying
+    .filter((c) => (c.membershipModifier ?? "").toLowerCase().includes("resigned"))
+    .map((c) => ({ memberId: c.memberId, fullName: c.fullName, membership: c.membership, updatedAt: toISODate(c.updatedAt) }))
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+  const absentMembers = qualifying
+    .filter((c) => (c.membershipModifier ?? "").toLowerCase().includes("absent"))
+    .map((c) => ({ memberId: c.memberId, fullName: c.fullName, membership: c.membership, updatedAt: toISODate(c.updatedAt) }))
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+
   const stats: MemberTrendStats = {
     computed_at: new Date().toISOString(),
     current,
     daily,
+    resigned_members: resignedMembers,
+    absent_members: absentMembers,
   };
 
   await kvSet(KV_KEY, stats, CACHE_TTL);

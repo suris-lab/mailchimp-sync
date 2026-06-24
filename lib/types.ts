@@ -176,10 +176,19 @@ export interface MemberTrendEntry {
   new_absent: number;   // newly recorded absent on this day (by updatedAt)
 }
 
+export interface MemberTrendContact {
+  memberId: string;
+  fullName: string;
+  membership: string;
+  updatedAt: string | null; // ISO date or null
+}
+
 export interface MemberTrendStats {
   computed_at: string;
   current: { total: number; active: number; resigned: number; absent: number; non_member: number };
   daily: MemberTrendEntry[];  // chronological, up to 90 entries
+  resigned_members: MemberTrendContact[];
+  absent_members: MemberTrendContact[];
 }
 
 // Mailchimp campaign categories

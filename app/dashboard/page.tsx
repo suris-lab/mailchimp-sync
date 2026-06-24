@@ -285,6 +285,61 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </div>
               )}
+
+              {/* Resigned / Absent member list — shown when that tab is active */}
+              {trendTab !== "total" && (() => {
+                const members = trendTab === "resigned"
+                  ? (trendData?.resigned_members ?? [])
+                  : (trendData?.absent_members ?? []);
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - trendDays);
+                const cutoffISO = cutoff.toISOString().slice(0, 10);
+                const filtered = members.filter((m) => m.updatedAt && m.updatedAt >= cutoffISO);
+                const noDate = members.filter((m) => !m.updatedAt);
+                const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                const fmtD = (iso: string) => {
+                  const m = parseInt(iso.slice(5, 7), 10) - 1;
+                  const d = parseInt(iso.slice(8, 10), 10);
+                  return `${MONTHS[m]} ${d}`;
+                };
+                return (
+                  <div className="px-5 pb-5">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+                      {trendTab === "resigned" ? "Resigned" : "Absent"} Members — last {trendDays} days ({filtered.length})
+                    </p>
+                    {filtered.length === 0 ? (
+                      <p className="text-xs text-gray-400">No records in this period</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-100 dark:border-gray-800">
+                              {["Member ID", "Name", "Membership", "Date"].map((h, i) => (
+                                <th key={h} className={`py-1.5 text-[9px] font-semibold uppercase tracking-widest text-gray-400 ${i === 0 ? "text-left" : i === 3 ? "text-right" : "text-left"} pr-4`}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                            {filtered.map((m) => (
+                              <tr key={m.memberId} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
+                                <td className="py-1.5 pr-4 text-gray-500 dark:text-gray-400 font-mono text-[11px]">{m.memberId}</td>
+                                <td className="py-1.5 pr-4 text-gray-700 dark:text-gray-300">{m.fullName}</td>
+                                <td className="py-1.5 pr-4 text-gray-400 text-[11px]">{m.membership.replace("Member_", "")}</td>
+                                <td className="py-1.5 text-right text-gray-400 tabular-nums text-[11px]">{m.updatedAt ? fmtD(m.updatedAt) : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {noDate.length > 0 && (
+                      <p className="text-[10px] text-gray-400 mt-2">
+                        + {noDate.length} members with no recorded date (not shown)
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </section>
           );
         })()}
