@@ -19,8 +19,7 @@ const STATUS_STYLE: Record<string, string> = {
 export function HealthPulseBar({ trendDelta, lastSync, runningAutomations, overdueCount }: Props) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900
-                    grid grid-cols-2 sm:grid-cols-4
-                    divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-800">
+                    grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 dark:divide-gray-800">
       {/* Member trend */}
       <div className="px-4 py-3">
         <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Member Trend</p>
