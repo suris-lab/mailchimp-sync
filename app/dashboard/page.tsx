@@ -170,7 +170,7 @@ export default function DashboardPage() {
           const periodAbsentTotal   = periodAbsent[periodAbsent.length - 1] ?? 0;
 
           const tabs = [
-            { key: "total"    as const, label: "Total Members",        count: current ? current.active + 204 : 0, color: "#EB0029" },
+            { key: "total"    as const, label: "Total Members",        count: current ? current.active + 202 : 0, color: "#EB0029" },
             { key: "resigned" as const, label: `Resigned (${trendDays}d)`, count: periodResignedTotal,               color: "#374151" },
             { key: "absent"   as const, label: `Absent (${trendDays}d)`,   count: periodAbsentTotal,                 color: "#6b7280" },
           ];
@@ -180,7 +180,7 @@ export default function DashboardPage() {
 
           const chartData = sliced.map((d, i) => ({
             date: fmtDate(d.date),
-            "Total Members": (d.active ?? 0) + 204,
+            "Total Members": (d.active ?? 0) + 202,
             "New Resigned": periodResigned[i],
             "New Absent": periodAbsent[i],
           }));
@@ -203,13 +203,13 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <p className="text-7xl sm:text-8xl font-bold tabular-nums leading-none text-hebe-red" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
-                      {(current.active + 204).toLocaleString()}
+                      {(current.active + 202).toLocaleString()}
                     </p>
                     <p className="text-sm font-bold tracking-[0.2em] uppercase text-gray-900 dark:text-white mt-4" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                       Total Members
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5">
-                      Excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned · +204 Absent members OR shared email members (not on GSheets)
+                      Excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned · +202 Absent members OR shared email members (not on GSheets)
                     </p>
                   </>
                 )}
