@@ -209,7 +209,7 @@ export default function DashboardPage() {
                       Total Members
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1.5">
-                      Excl. Non-Members, Staff, GM, Reciprocal Club &amp; Resigned
+                      Excl. Non-Members, Staff, GM, Reciprocal Club, Absent &amp; Resigned
                     </p>
                   </>
                 )}
