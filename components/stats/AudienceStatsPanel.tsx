@@ -239,39 +239,39 @@ function TagPieChart({ data }: { data: Record<string, number> }) {
 }
 
 // ── Membership donut — with non-member toggle (default: hidden) ───────────────
-function MembershipPieChart({ data, prevData }: { data: Record<string, number>; prevData?: Record<string, number> }) {
+function isExcludedType(key: string): boolean {
+  const k = key.toLowerCase().replace(/[_\-\s]+/g, "");
+  return (k.includes("non") && k.includes("member")) ||
+    k === "allstaff" || k === "gm" || k.includes("reciprocal");
+}
+
+function MembershipPieChart({ data, prevData, modifiers }: {
+  data: Record<string, number>;
+  prevData?: Record<string, number>;
+  modifiers?: Record<string, number>;
+}) {
   const tc = useThemeColors();
-  // Non-members excluded by default
-  const [excludeNonMembers, setExcludeNonMembers] = useState(true);
 
-  const filteredData = excludeNonMembers
-    ? Object.fromEntries(Object.entries(data).filter(([k]) => !k.toLowerCase().includes("non")))
-    : data;
-
-  const slices = groupSmallSlices(filteredData);
-  const total = slices.reduce((s, d) => s + d.value, 0);
-  const renderLabel = makePieLabel(tc);
-
-  const toggleBtn = (
-    <button
-      onClick={() => setExcludeNonMembers((v) => !v)}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
-        excludeNonMembers
-          ? "bg-hebe-red text-white"
-          : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 hover:text-hebe-red dark:hover:text-hebe-red"
-      }`}
-    >
-      {excludeNonMembers ? "Non-members hidden" : "Include non-members"}
-    </button>
+  // Exclude non-members, All Staff, GM, Reciprocal Club from the pie
+  const filteredData = Object.fromEntries(
+    Object.entries(data).filter(([k]) => !isExcludedType(k)),
   );
 
+  // Subtract resigned + absent modifier counts from total
+  const resignedCount = modifiers
+    ? Object.entries(modifiers).filter(([k]) => k.toLowerCase().includes("resigned")).reduce((s, [, v]) => s + v, 0)
+    : 0;
+  const absentCount = modifiers
+    ? Object.entries(modifiers).filter(([k]) => k.toLowerCase().includes("absent")).reduce((s, [, v]) => s + v, 0)
+    : 0;
+  const modifierExcluded = resignedCount + absentCount;
+
+  const slices = groupSmallSlices(filteredData);
+  const total = slices.reduce((s, d) => s + d.value, 0) - modifierExcluded;
+  const renderLabel = makePieLabel(tc);
+
   if (slices.length === 0) {
-    return (
-      <div>
-        <div className="mb-3">{toggleBtn}</div>
-        <p className="py-10 text-center text-xs text-gray-300 dark:text-gray-600">No data</p>
-      </div>
-    );
+    return <p className="py-10 text-center text-xs text-gray-300 dark:text-gray-600">No data</p>;
   }
 
   const chartH = tc.mobile ? 280 : 340;
@@ -280,7 +280,6 @@ function MembershipPieChart({ data, prevData }: { data: Record<string, number>; 
 
   return (
     <div>
-      <div className="mb-3">{toggleBtn}</div>
       <div className="[&_svg]:overflow-visible">
         <ResponsiveContainer width="100%" height={chartH}>
           <PieChart>
@@ -320,6 +319,11 @@ function MembershipPieChart({ data, prevData }: { data: Record<string, number>; 
           </PieChart>
         </ResponsiveContainer>
       </div>
+      {modifierExcluded > 0 && (
+        <p className="text-[10px] text-gray-400 mt-1 text-center">
+          Excl. {resignedCount > 0 ? `${resignedCount} resigned` : ""}{resignedCount > 0 && absentCount > 0 ? " & " : ""}{absentCount > 0 ? `${absentCount} absent` : ""} members
+        </p>
+      )}
     </div>
   );
 }
@@ -513,7 +517,11 @@ export function AudienceStatsPanel({ stats, previous, isLoading }: AudienceStats
         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 mb-1">
           Name and % on each slice · hover for contact count
         </p>
-        <MembershipPieChart data={stats.membership} prevData={previous?.membership} />
+        <MembershipPieChart
+          data={stats.membership}
+          prevData={previous?.membership}
+          modifiers={stats.membership_modifier}
+        />
       </div>
 
       {/* ── Interest — full-width bar chart (red, differentiated) ── */}
