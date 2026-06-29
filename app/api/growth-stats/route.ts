@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   // Qualifying members: membership contains "Member", excludes "Non-Member", excludes Resigned
   const members = contacts.filter((c) => {
     const m = c.membership ?? "";
-    if (!m.includes("Member") || m.includes("Non-Member")) return false;
+    if (!m.includes("Member") || m.includes("Non-Member") || m.includes("Backup")) return false;
     if (c.membershipModifier === "Member_Resigned") return false;
     return true;
   });

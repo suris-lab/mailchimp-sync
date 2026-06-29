@@ -14,7 +14,7 @@ function isNonMember(membership: string): boolean {
 function isExcludedMembership(membership: string): boolean {
   const m = (membership ?? "").toLowerCase().replace(/[_\-\s]+/g, "");
   return isNonMember(membership) ||
-    m === "allstaff" || m === "gm" || m.includes("reciprocal");
+    m === "allstaff" || m === "gm" || m.includes("reciprocal") || m.includes("backup");
 }
 
 function toISODate(raw: string): string | null {

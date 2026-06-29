@@ -145,14 +145,14 @@ function ExecutiveSummary({ data, onRefresh, refreshing }: { data: SurveyInsight
           className="w-full flex items-center justify-between px-5 py-3 text-left"
         >
           <div className="flex items-center gap-2">
-            {(dq.unmatched_r1 > 0 || dq.missing_fields.length > 0) && (
+            {dq.missing_fields.length > 0 && (
               <AlertTriangle size={11} className="text-hebe-red" />
             )}
             <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               Data Quality
             </span>
             <span className="text-[10px] text-gray-400">
-              {dq.matched_complete} complete · {dq.r1_rows} in Response · {dq.r2_rows} in Response2
+              {dq.valid_rows} valid of {dq.total_rows} rows · {dq.source_sheet}
             </span>
           </div>
           {dqOpen ? <ChevronUp size={13} className="text-gray-400" /> : <ChevronDown size={13} className="text-gray-400" />}
@@ -160,13 +160,10 @@ function ExecutiveSummary({ data, onRefresh, refreshing }: { data: SurveyInsight
         {dqOpen && (
           <div className="px-5 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs border-t border-gray-100 dark:border-gray-800 pt-3">
             {[
-              { label: "Response sheet rows",   value: String(dq.r1_rows) },
-              { label: "Response2 sheet rows",  value: String(dq.r2_rows) },
-              { label: "Matched complete",       value: String(dq.matched_complete) },
-              { label: "Unmatched (R1 only)",    value: String(dq.unmatched_r1), warn: dq.unmatched_r1 > 0 },
-              { label: "Unmatched (R2 only)",    value: String(dq.unmatched_r2), warn: dq.unmatched_r2 > 0 },
-              { label: "Join method",            value: dq.join_method },
-            ].map(({ label, value, warn }) => (
+              { label: "Total sheet rows",   value: String(dq.total_rows) },
+              { label: "Valid rows",         value: String(dq.valid_rows) },
+              { label: "Source",             value: dq.source_sheet },
+            ].map(({ label, value, warn }: { label: string; value: string; warn?: boolean }) => (
               <div key={label}>
                 <p className="text-[9px] uppercase tracking-widest text-gray-400">{label}</p>
                 <p className={`font-semibold mt-0.5 ${warn ? "text-hebe-red" : "text-gray-700 dark:text-gray-300"}`}>{value}</p>
@@ -245,7 +242,7 @@ function SatisfactionSection({ data }: { data: SurveyInsights }) {
               {areaData.slice(0, 8).map((a) => (
                 <div key={a.label}>
                   <div className="flex justify-between mb-0.5">
-                    <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[65%]">{a.label}</span>
+                    <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[55%]">{a.label} <span className="text-gray-400">(n={a.count})</span></span>
                     <span className="text-[10px] font-semibold tabular-nums" style={{ color: a.satisfaction >= 4 ? HEBE_RED : a.satisfaction >= 3 ? GREY_500 : GREY_700 }}>
                       {fmt1(a.satisfaction)}
                     </span>
@@ -481,7 +478,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
     <section>
       <SectionTitle
         label="Membership & Benefits"
-        sub="Referral programme awareness (Q23) · Attractiveness (Q23a) · Member privilege value (Q25)"
+        sub="Referral programme awareness (Q23) · Attractiveness (Q23a) · Member privilege value (Q24)"
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -541,7 +538,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
               </div>
             )}
             <p className="text-[10px] text-gray-400 mt-2">
-              Q24 (open): improvement comments included in Comment Themes.
+              Q23b (open): improvement comments included in Comment Themes.
             </p>
           </div>
         </Card>
@@ -591,7 +588,162 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
   );
 }
 
-// ── Section 5 (was 4): Importance vs Satisfaction Matrix ──────────────────────
+// ── Facilities Wishlist (Q11a) ────────────────────────────────────────────────
+
+function FacilitiesWishlistSection({ data }: { data: SurveyInsights }) {
+  const items = data.additional_facilities ?? [];
+  if (items.length === 0) return null;
+  const maxCount = items[0]?.count || 1;
+  return (
+    <section>
+      <SectionTitle label="Facilities Wishlist" sub="Additional facilities members would like (Q11a) — multi-select" />
+      <Card>
+        <div className="space-y-2">
+          {items.map(({ label, count, pct }, i) => (
+            <div key={label}>
+              <div className="flex justify-between mb-0.5">
+                <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[70%]">
+                  {i + 1}. {label}
+                </span>
+                <span className="text-[10px] tabular-nums text-gray-400 ml-2 shrink-0">{count} · {pct}%</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                <div
+                  className="h-1.5 rounded-full"
+                  style={{ width: `${(count / maxCount) * 100}%`, backgroundColor: i < 3 ? HEBE_RED : GREY_500 }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+// ── Marine & Boatyard (Qc, Qca) ─────────────────────────────────────────────
+
+function MarineBoatyardSection({ data }: { data: SurveyInsights }) {
+  const satScore = data.marine_boatyard_satisfaction ?? 0;
+  const satDist = data.marine_boatyard_satisfaction_dist ?? {};
+  const upgradeFreq = data.marine_boatyard_upgrade_freq ?? [];
+  const hasSat = Object.values(satDist).some((v) => v > 0);
+  if (!hasSat && upgradeFreq.length === 0) return null;
+  const maxFreq = upgradeFreq[0]?.count || 1;
+  return (
+    <section>
+      <SectionTitle label="Marine & Boatyard" sub="Physical condition satisfaction (Qc) · Upgrade review frequency (Qca)" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Condition Satisfaction</p>
+          <p className="text-3xl font-bold tabular-nums" style={{ color: satColor(satScore) }}>{fmt1(satScore)}<span className="text-sm text-gray-400">/5</span></p>
+          {hasSat && (
+            <div className="mt-3 space-y-1">
+              {[5, 4, 3, 2, 1].map((n) => {
+                const c = satDist[String(n)] ?? 0;
+                const total = Object.values(satDist).reduce((s, v) => s + v, 0) || 1;
+                return (
+                  <div key={n} className="flex items-center gap-2">
+                    <span className="text-[10px] w-4 text-right text-gray-500">{n}★</span>
+                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div className="h-1.5 rounded-full" style={{ width: `${(c / total) * 100}%`, backgroundColor: n >= 4 ? GREY_700 : n === 3 ? GREY_500 : HEBE_RED }} />
+                    </div>
+                    <span className="text-[10px] tabular-nums text-gray-400 w-6 text-right">{c}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Upgrade Review Frequency (Qca)</p>
+          <div className="space-y-2">
+            {upgradeFreq.map(({ label, count, pct }) => (
+              <div key={label}>
+                <div className="flex justify-between mb-0.5">
+                  <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[65%]">{label}</span>
+                  <span className="text-[10px] tabular-nums text-gray-400 shrink-0">{count} · {pct}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                  <div className="h-1.5 rounded-full bg-gray-500" style={{ width: `${(count / maxFreq) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+// ── Community & Values (Q25, Q26, Q27) ───────────────────────────────────────
+
+function CommunityValuesSection({ data }: { data: SurveyInsights }) {
+  const dogs = data.dogs_on_balcony ?? [];
+  const values = data.core_values ?? [];
+  const sr = data.social_responsibility ?? [];
+  if (dogs.length === 0 && values.length === 0 && sr.length === 0) return null;
+  const maxDogs = dogs[0]?.count || 1;
+  const maxVals = values[0]?.count || 1;
+  const maxSr   = sr[0]?.count || 1;
+  return (
+    <section>
+      <SectionTitle label="Community & Values" sub="Dogs on balcony (Q25) · Core values (Q26) · Social responsibility (Q27)" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Dogs on Balcony (Q25)</p>
+          <div className="space-y-2">
+            {dogs.map(({ label, count, pct }) => (
+              <div key={label}>
+                <div className="flex justify-between mb-0.5">
+                  <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[60%]">{label}</span>
+                  <span className="text-[10px] tabular-nums text-gray-400 shrink-0">{count} · {pct}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                  <div className="h-1.5 rounded-full" style={{ width: `${(count / maxDogs) * 100}%`, backgroundColor: GREY_700 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Core Values (Q26)</p>
+          <div className="space-y-2">
+            {values.slice(0, 8).map(({ label, count, pct }, i) => (
+              <div key={label}>
+                <div className="flex justify-between mb-0.5">
+                  <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[60%]">{i + 1}. {label}</span>
+                  <span className="text-[10px] tabular-nums text-gray-400 shrink-0">{count} · {pct}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                  <div className="h-1.5 rounded-full" style={{ width: `${(count / maxVals) * 100}%`, backgroundColor: i < 3 ? HEBE_RED : GREY_500 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Social Responsibility (Q27)</p>
+          <div className="space-y-2">
+            {sr.slice(0, 8).map(({ label, count, pct }, i) => (
+              <div key={label}>
+                <div className="flex justify-between mb-0.5">
+                  <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate max-w-[60%]">{i + 1}. {label}</span>
+                  <span className="text-[10px] tabular-nums text-gray-400 shrink-0">{count} · {pct}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                  <div className="h-1.5 rounded-full" style={{ width: `${(count / maxSr) * 100}%`, backgroundColor: i < 3 ? HEBE_RED : GREY_500 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+// ── Importance vs Satisfaction Matrix ─────────────────────────────────────────
 
 function MatrixSection({ data }: { data: SurveyInsights }) {
   const [hovered, setHovered] = useState<number | null>(null);
@@ -1277,9 +1429,12 @@ export default function SurveyPage() {
           <>
             <ExecutiveSummary data={data!} onRefresh={handleRefresh} refreshing={refreshing} />
             <SatisfactionSection data={data!} />
+            <FacilitiesWishlistSection data={data!} />
             <NpsSection data={data!} />
             <CommunicationsSection data={data!} />
+            <MarineBoatyardSection data={data!} />
             <MembershipBenefitsSection data={data!} />
+            <CommunityValuesSection data={data!} />
             <MatrixSection data={data!} />
             <SegmentSection data={data!} />
             <PrioritySection data={data!} />

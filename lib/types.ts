@@ -363,12 +363,9 @@ export interface CommentTheme {
 }
 
 export interface SurveyDataQuality {
-  r1_rows: number;
-  r2_rows: number;
-  matched_complete: number;
-  unmatched_r1: number;
-  unmatched_r2: number;
-  join_method: string;
+  total_rows: number;
+  valid_rows: number;
+  source_sheet: string;
   missing_fields: string[];
 }
 
@@ -401,6 +398,14 @@ export interface SurveyInsights {
   comm_satisfaction: number;
   website_rating: number;
   membership_value: number;
+
+  marine_boatyard_satisfaction: number;
+  marine_boatyard_satisfaction_dist: Record<string, number>;
+  marine_boatyard_upgrade_freq: { label: string; count: number; pct: number }[];
+  additional_facilities: { label: string; count: number; pct: number }[];
+  dogs_on_balcony: { label: string; count: number; pct: number }[];
+  core_values: { label: string; count: number; pct: number }[];
+  social_responsibility: { label: string; count: number; pct: number }[];
   referral_aware: { yes: number; no: number; pct_aware: number };
   avg_referral_attractive: number;
   referral_attractive_dist: Record<string, number>;

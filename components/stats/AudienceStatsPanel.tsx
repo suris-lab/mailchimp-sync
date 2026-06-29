@@ -242,7 +242,7 @@ function TagPieChart({ data }: { data: Record<string, number> }) {
 function isExcludedType(key: string): boolean {
   const k = key.toLowerCase().replace(/[_\-\s]+/g, "");
   return (k.includes("non") && k.includes("member")) ||
-    k === "allstaff" || k === "gm" || k.includes("reciprocal");
+    k === "allstaff" || k === "gm" || k.includes("reciprocal") || k.includes("backup");
 }
 
 function MembershipPieChart({ data, prevData, modifiers }: {

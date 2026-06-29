@@ -10,29 +10,33 @@ import type {
 
 const SURVEY_SHEET_ID = "1xXYioBArLe4uVlWKmRaY8ri8DXTc0OzaHiG3ZvRcITU";
 // This route NEVER reads from process.env.SHEET_ID (CRM). Always SURVEY_SHEET_ID.
-const KV_KEY   = "survey:insights_2026";
+const KV_KEY   = "survey:insights_2026_v2";
 const CACHE_TTL = 300; // 5 minutes — live survey data
-
-const JOIN_KEY = "Entry ID";
 
 // Priority score weights (0–1, must sum to 1.0)
 const WEIGHTS = { importance: 0.40, satisfaction: 0.35, comments: 0.25 };
 
-// ── Column maps (confirmed from sheet inspection 2026-06-10) ─────────────────
+// ── Column map — single "Response" sheet (A–AN, 40 columns) ────────────────
 
-const R1 = {
+type Row = Record<string, string>;
+
+const R = {
   membership_category:  "1. What is your membership category? 您的會籍類別是？",
   membership_cat_other: "1a. Please specify 請註明",
   membership_length:    "2. How long have you been a member of HHYC?",
   main_usage:           "3. Which of the following best describes how you mainly use the Club?",
+  main_usage_other:     "3a. Please specify 請註明",
   visit_frequency:      "4. On average, how often do you visit the Club?",
-  satisfaction_overall: "5. Overall, how satisfied are you with your HHYC membership experience?",
+  satisfaction_overall:  "5. Overall, how satisfied are you with your HHYC membership experience?",
   nps_score:            "6. How likely are you to recommend HHYC to a friend, or suitable prospective member?",
   nps_reason:           "7. What is the main reason for your score above?",
   improvement_trend:    "8. Compared with one year ago, do you feel the Club has:",
   best_thing:           "9. What is the one thing HHYC currently does best?",
   improve_thing:        "10. What is the one thing HHYC most needs to improve?",
+  marine_boatyard_sat:  "C. Overall, how satisfied are you with the current physical condition and maintenance of the Marine and Boatyard facilities? 整體而言，您對現時海事及船廠設施的實際狀況與維修保養滿意度如何？",
+  marine_boatyard_freq: "Ca. How frequently do you think the Club should review and carry out necessary upgrades, renovation or repairs to Marine and Boatyard facilities? 您認為本會應每隔多久檢視並按需要為海事及船廠設施進行升級、翻新或維修？ *",
   clubhouse_ratings:    "11. Clubhouse and facilities",
+  additional_facilities: "11a. Which additional facilities would you like the Club to consider introducing or expanding in the future? 您希望本會未來考慮增設或擴充哪些設施？",
   fnb_ratings:          "12. Food and Beverage",
   marine_ratings:       "13. Marine facilities and services",
   sailing_ratings:      "14. Sailing activities and programmes",
@@ -41,21 +45,21 @@ const R1 = {
   priority_improve:     "16. Where should the Club prioritise improvement over the next 12 months?",
   priority_other:       "16a. Please specify 請註明",
   highest_priority:     "17. Of the areas you selected above, which ONE should be the highest priority and why?",
-  comm_satisfaction:    "18. How satisfied are you with the Club’s communication with members?",
+  comm_satisfaction:    "18. How satisfied are you with the Club's communication with members?",
   comm_channels:        "19. Which channels do you usually use to receive Club information?",
   comm_channels_other:  "19a. Please specify 請註明",
   comm_info_wanted:     "20. What type of Club information would you like to receive more clearly or more regularly?",
   comm_info_other:      "20a. Please specify 請註明",
-} as const;
-
-const R2 = {
-  website_rating:      "21. How would you rate the clarity of the Club website? 您對本會官方網站的清晰度評分如何 *",
-  membership_value:    "22. How would you rate the overall value of your HHYC membership?",
-  referral_aware:      "23. Were you aware of HHYC’s existing Member Referral Programme? 您是否知道本會現有的會員推薦計劃？",
-  referral_attractive: "23a. How attractive is the existing Member Referral Programme to you?  您認為現有會員推薦計劃的吸引力如何？",
-  referral_improve:    "24. What would make the Member Referral Programme more attractive to you? 哪些安排可令會員推薦計劃更具吸引力?",
-  privilege_value:     "25. How valuable do you find the privileges and benefits currently available to HHYC members? 您認為本會現時提供的會員專享禮遇及福利價值如何？",
-  final_comments:      "26. Is there anything else you would like the Club, General Committee, or management team to know? 您還有其他任何想法，希望讓本會、執行委員會或管理團隊了解嗎？",
+  website_rating:       "21. How would you rate the clarity of the Club website? 您對本會官方網站的清晰度評分如何 *",
+  membership_value:     "22. How would you rate the overall value of your HHYC membership? 您對白沙灣遊艇會的會籍整體評分如何 *",
+  referral_aware:       "23. Were you aware of HHYC's existing Member Referral Programme? 您是否知道本會現有的會員推薦計劃？ *",
+  referral_attractive:  "23a. How attractive is the existing Member Referral Programme to you?  您認為現有會員推薦計劃的吸引力如何？",
+  referral_improve:     "23b. What would make the Member Referral Programme more attractive to you? 哪些安排可令會員推薦計劃更具吸引力?",
+  privilege_value:      "24. How valuable do you find the privileges and benefits currently available to HHYC members? 您認為本會現時提供的會員專享禮遇及福利是否具有價值？ *",
+  dogs_on_balcony:      "25. Would you support allowing dogs on the Club balcony under clearly defined rules? 您是否支持在清晰規則下，允許會員攜同狗隻進入本會露台？ *",
+  core_values:          "26. Is there any core value that you believe could represent HHYC? 您認為什麼最能代表本會的核心價值？",
+  social_responsibility: "27. Which areas of social responsibility do you think HHYC should contribute more to? 您認為本會應在哪些社會責任範疇作出更多貢獻？",
+  final_comments:       "28. Is there anything else you would like the Club, General Committee, or management team to know? 您還有其他任何想法，希望讓本會、執行委員會或管理團隊了解嗎？",
 } as const;
 
 // ── Rating helpers ────────────────────────────────────────────────────────────
@@ -68,7 +72,7 @@ const NOT_APPLICABLE = [
   "Not applicable / I do not use this", "Not Applicable", "N/A", "n/a",
 ];
 
-// Q25 privilege value labels → numeric (different scale from RATING_TEXT_MAP)
+// Q24 privilege value labels → numeric (different scale from RATING_TEXT_MAP)
 const PRIVILEGE_VALUE_MAP: Record<string, number> = {
   "Not valuable": 1, "Slightly valuable": 2, "Moderately valuable": 3,
   "Valuable": 4, "Very valuable": 5,
@@ -116,7 +120,7 @@ function parseReferralAware(raw: string | undefined): "yes" | "no" | null {
   return null;
 }
 
-// Q25: privilege value rating (distinct 5-point scale + "not aware" opt-out → null)
+// Q24: privilege value rating (distinct 5-point scale + "not aware" opt-out → null)
 function parsePrivilegeValue(raw: string | undefined): number | null {
   if (!raw) return null;
   const n = normBilingual(raw);
@@ -125,9 +129,16 @@ function parsePrivilegeValue(raw: string | undefined): number | null {
 }
 
 // Normalise a bilingual preset value "English 中文" → "English".
-// Safe no-op on already-English strings. Never apply to open-text comment fields.
+// Strips ALL CJK characters (handles mid-string Chinese like "Bar 酒吧 / balcony 陽台").
+// Normalises smart quotes to ASCII. Safe no-op on pure-Chinese strings (fallback to original).
 function normBilingual(raw: string): string {
-  return raw.replace(/[一-鿿㐀-䶿＀-￯\s]+$/, "").trim() || raw.trim();
+  const stripped = raw
+    .replace(/[一-鿿㐀-䶿＀-￯]/g, "")
+    .replace(/[‘’]/g, "'")
+    .replace(/[⁠]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped || raw.trim();
 }
 
 // Average of a number array, ignoring nulls
@@ -137,23 +148,23 @@ function avg(values: (number | null)[]): number {
   return valid.reduce((s, v) => s + v, 0) / valid.length;
 }
 
-// ── Merge ─────────────────────────────────────────────────────────────────────
-
-// __partial stored as string "1" (partial) or "" (complete) to satisfy Record<string,string>
-type MergedRow = Record<string, string>;
-const PARTIAL_KEY = "__partial";
-const isPartial = (r: MergedRow) => r[PARTIAL_KEY] === "1";
-
-function mergeSheets(r1: MergedRow[], r2: MergedRow[]) {
-  const map2 = new Map(r2.map((r) => [r[JOIN_KEY], r]));
-  const r1Keys = new Set(r1.map((r) => r[JOIN_KEY]));
-  const merged: MergedRow[] = r1.map((row) => {
-    const match = map2.get(row[JOIN_KEY]);
-    return { ...row, ...(match ?? {}), [PARTIAL_KEY]: match ? "" : "1" };
-  });
-  const unmatched_r2 = r2.filter((r) => !r1Keys.has(r[JOIN_KEY])).length;
-  const unmatched_r1 = merged.filter(isPartial).length;
-  return { merged, unmatched_r1, unmatched_r2 };
+// Frequency distribution helper — multi-select or single-value
+function freqDist(rows: Row[], field: string, multiSelect = false): { label: string; count: number; pct: number }[] {
+  const freq: Record<string, number> = {};
+  for (const row of rows) {
+    if (multiSelect) {
+      for (const item of parseMultiSelect(row[field] ?? "")) {
+        freq[item] = (freq[item] ?? 0) + 1;
+      }
+    } else {
+      const v = normBilingual((row[field] ?? "").trim());
+      if (v) freq[v] = (freq[v] ?? 0) + 1;
+    }
+  }
+  const n = rows.length || 1;
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, count]) => ({ label, count, pct: Math.round((count / n) * 100) }));
 }
 
 // ── Comment theme coding (keyword rules, deterministic) ───────────────────────
@@ -251,45 +262,64 @@ function codeThemes(texts: string[]): CommentTheme[] {
 // ── Area satisfaction map ─────────────────────────────────────────────────────
 // Maps analysis areas to sub-category names within Q11–Q14
 
-const AREA_SUBCATS: Record<string, { field: "clubhouse_ratings" | "fnb_ratings" | "marine_ratings" | "sailing_ratings"; subcats: string[] }[]> = {
+type RatingField = "clubhouse_ratings" | "fnb_ratings" | "marine_ratings" | "sailing_ratings";
+
+const AREA_SUBCATS: Record<string, { field: RatingField; subcats: string[] }[]> = {
   "F&B Quality":          [{ field: "fnb_ratings",      subcats: ["Food quality", "Menu variety", "Drinks and bar offering"] }],
   "F&B Pricing / Value":  [{ field: "fnb_ratings",      subcats: ["Value for money", "Dining promotions"] }],
-  "Clubhouse Facilities": [{ field: "clubhouse_ratings", subcats: ["Locker facilities", "Bar / verandah / social areas"] }],
+  "Clubhouse Facilities": [{ field: "clubhouse_ratings", subcats: ["Locker facilities", "Club restaurant", "Garden Bar", "Bar / balcony", "Car park or access system"] }],
   "Cleanliness":          [{ field: "clubhouse_ratings", subcats: ["Toilets and shower facilities", "General cleanliness and maintenance"] }],
   "Community Atmosphere": [{ field: "clubhouse_ratings", subcats: ["Overall atmosphere of the Club"] }],
   "Family Activities":    [{ field: "clubhouse_ratings", subcats: ["Children's play facilities"] }],
   "Car Parking":          [{ field: "clubhouse_ratings", subcats: ["Car parking"] }],
-  "Marine Facilities":    [{ field: "marine_ratings",    subcats: ["Pontoon berthing", "Swing moorings", "Hardstand", "Boatyard services", "Safety and access arrangements"] }],
-  "Sailing Programmes":   [{ field: "sailing_ratings",   subcats: ["Dinghy sailing activities", "Cruising activities", "Youth sailing programmes", "Adult sailing courses", "School / community sailing programmes"] }],
+  "Marine Facilities":    [{ field: "marine_ratings",    subcats: ["Pontoon berthing", "Swing moorings", "Hardstand", "Boatyard services", "Safety and access arrangements", "HebeOne", "Marine staff support"] }],
+  "Sailing Programmes":   [{ field: "sailing_ratings",   subcats: ["Dinghy sailing activities", "Cruising activities", "Youth sailing programmes", "Adult sailing courses", "School / community sailing programmes", "Registration system"] }],
   "Racing & Regattas":    [{ field: "sailing_ratings",   subcats: ["Keelboat racing", "Regatta organisation"] }],
   "Social Events":        [{ field: "fnb_ratings",       subcats: ["Club social dining events"] }, { field: "sailing_ratings", subcats: ["Prize giving and sailing social activities"] }],
-  "Member Service":       [{ field: "fnb_ratings",       subcats: ["Service quality", "Speed of service"] }, { field: "marine_ratings", subcats: ["Marine staff support"] }],
-  "Communications":       [],  // uses Q18 directly
-  "Membership Value":     [],  // uses Q22 directly
+  "Member Service":       [{ field: "fnb_ratings",       subcats: ["Service quality", "Service responsiveness", "Payment system (POS)"] }],
+  "Communications":       [],
+  "Membership Value":     [],
+  "Marine & Boatyard Condition": [],
 };
+
+// Collect all mapped sub-category names for unmapped detection
+const ALL_MAPPED_SUBCATS = new Set(
+  Object.values(AREA_SUBCATS).flatMap((sources) => sources.flatMap((s) => s.subcats)),
+);
 
 // ── Segment helper ────────────────────────────────────────────────────────────
 
-function buildSegmentStats(rows: MergedRow[], key: string): Record<string, SurveySegmentStat> {
-  const groups: Record<string, MergedRow[]> = {};
+function buildSegmentStats(rows: Row[], key: string, multiSelect = false): Record<string, SurveySegmentStat> {
+  const groups: Record<string, Row[]> = {};
   for (const row of rows) {
-    const val = row[key] ? normBilingual(row[key]) : "Unknown";
-    if (!groups[val]) groups[val] = [];
-    groups[val].push(row);
+    if (multiSelect) {
+      const items = parseMultiSelect(row[key] ?? "");
+      if (items.length === 0) {
+        if (!groups["Unknown"]) groups["Unknown"] = [];
+        groups["Unknown"].push(row);
+      } else {
+        // Use first selected value for segmentation
+        const val = items[0];
+        if (!groups[val]) groups[val] = [];
+        groups[val].push(row);
+      }
+    } else {
+      const val = row[key] ? normBilingual(row[key]) : "Unknown";
+      if (!groups[val]) groups[val] = [];
+      groups[val].push(row);
+    }
   }
   const result: Record<string, SurveySegmentStat> = {};
   for (const [seg, segRows] of Object.entries(groups)) {
-    const complete = segRows.filter((r) => !isPartial(r));
-    const sats = complete.map((r) => parseRating(r[R1.satisfaction_overall])).filter((v): v is number => v !== null);
-    const npsVals = complete.map((r) => parseNps(r[R1.nps_score])).filter((v): v is number => v !== null);
+    const sats = segRows.map((r) => parseRating(r[R.satisfaction_overall])).filter((v): v is number => v !== null);
+    const npsVals = segRows.map((r) => parseNps(r[R.nps_score])).filter((v): v is number => v !== null);
     const promoters  = npsVals.filter((n) => n >= 9).length;
     const detractors = npsVals.filter((n) => n <= 6).length;
     const npsScore   = npsVals.length > 0 ? Math.round(((promoters - detractors) / npsVals.length) * 100) : 0;
 
-    // Top 3 priorities from Q15+Q16
     const priFreq: Record<string, number> = {};
     for (const row of segRows) {
-      for (const item of [...parseMultiSelect(row[R1.most_important]), ...parseMultiSelect(row[R1.priority_improve])]) {
+      for (const item of [...parseMultiSelect(row[R.most_important]), ...parseMultiSelect(row[R.priority_improve])]) {
         priFreq[item] = (priFreq[item] ?? 0) + 1;
       }
     }
@@ -333,8 +363,6 @@ function buildActionItems(areas: SurveyAreaStat[], themes: CommentTheme[], n: nu
     return Math.round((WEIGHTS.importance * impNorm + WEIGHTS.satisfaction * (1 - satNorm) + WEIGHTS.comments * negPct) * 100);
   };
 
-  // Sort: Immediate Priority → Monitor → Protect & Maintain → Lower Priority
-  // Within each quadrant, sort by score descending
   const QUAD_ORDER: Record<Quadrant, number> = { immediate: 0, monitor: 1, protect: 2, lower: 3 };
 
   const sorted = areas
@@ -396,13 +424,11 @@ function buildActionItems(areas: SurveyAreaStat[], themes: CommentTheme[], n: nu
 
 // ── Main computation ──────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2: number, r1Len: number, r2Len: number): SurveyInsights {
-  const complete = merged.filter((r) => !isPartial(r));
-  const total    = complete.length;
+function computeInsights(rows: Row[]): SurveyInsights {
+  const total = rows.length;
 
   // ── Overall satisfaction ─────────────────────────────────────────────────
-  const satValues = complete.map((r) => parseRating(r[R1.satisfaction_overall]));
+  const satValues = rows.map((r) => parseRating(r[R.satisfaction_overall]));
   const satDist: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
   for (const v of satValues) if (v !== null) satDist[String(v)]++;
   const avgSat     = avg(satValues);
@@ -411,7 +437,7 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
   const pctDissat  = Math.round(((satDist["1"] + satDist["2"]) / validN) * 100);
 
   // ── NPS ──────────────────────────────────────────────────────────────────
-  const npsValues  = complete.map((r) => parseNps(r[R1.nps_score])).filter((v): v is number => v !== null);
+  const npsValues  = rows.map((r) => parseNps(r[R.nps_score])).filter((v): v is number => v !== null);
   const promoters  = npsValues.filter((n) => n >= 9).length;
   const passives   = npsValues.filter((n) => n >= 7 && n <= 8).length;
   const detractors = npsValues.filter((n) => n <= 6).length;
@@ -421,35 +447,35 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
 
   // ── Priority frequencies (Q15 + Q16) ─────────────────────────────────────
   const priFreq: Record<string, number> = {};
-  for (const row of merged) {
-    for (const item of [...parseMultiSelect(row[R1.most_important]), ...parseMultiSelect(row[R1.priority_improve])]) {
+  for (const row of rows) {
+    for (const item of [...parseMultiSelect(row[R.most_important]), ...parseMultiSelect(row[R.priority_improve])]) {
       priFreq[item] = (priFreq[item] ?? 0) + 1;
     }
   }
-  const totalPriResponses = merged.length || 1;
+  const totalPriResponses = rows.length || 1;
   const top_priorities = Object.entries(priFreq)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 15)
     .map(([label, count]) => ({ label, count, pct: Math.round((count / totalPriResponses) * 100) }));
 
-  // Normalise priority frequency for importance (0–1)
   const maxPriFreq = Math.max(...Object.values(priFreq), 1);
 
   // ── Area satisfaction ─────────────────────────────────────────────────────
   const area_stats: SurveyAreaStat[] = [];
+  const seenSubcats = new Set<string>();
+
   for (const [areaLabel, sources] of Object.entries(AREA_SUBCATS)) {
     if (sources.length === 0) {
-      // Communications (Q18) or Membership Value (Q22)
-      const isComms = areaLabel === "Communications";
-      const isValue = areaLabel === "Membership Value";
-      const vals = complete.map((r) => {
-        if (isComms) return parseRating(r[R1.comm_satisfaction]);
-        if (isValue) return parseRating(r[R2.membership_value]);
+      const isComms   = areaLabel === "Communications";
+      const isValue   = areaLabel === "Membership Value";
+      const isMarine  = areaLabel === "Marine & Boatyard Condition";
+      const vals = rows.map((r) => {
+        if (isComms)  return parseRating(r[R.comm_satisfaction]);
+        if (isValue)  return parseRating(r[R.membership_value]);
+        if (isMarine) return parseRating(r[R.marine_boatyard_sat]);
         return null;
       }).filter((v): v is number => v !== null);
-      // Importance: how often this area appears in Q15/Q16
-      // "membership value" is specific enough to avoid matching "F&B Pricing / Value"
-      const keyword = isComms ? "commun" : "membership value";
+      const keyword = isComms ? "commun" : isValue ? "membership value" : "marine";
       const impFreq = Object.entries(priFreq)
         .filter(([k]) => k.toLowerCase().includes(keyword))
         .reduce((s, [, v]) => s + v, 0);
@@ -463,18 +489,17 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
       continue;
     }
     const allVals: (number | null)[] = [];
-    for (const row of complete) {
+    for (const row of rows) {
       for (const src of sources) {
-        const fieldKey = R1[src.field];
+        const fieldKey = R[src.field];
         const parsed   = parseSubRatings(row[fieldKey] ?? "");
         for (const sub of src.subcats) {
+          seenSubcats.add(sub);
           const v = parsed[sub];
           if (v !== null && v !== undefined) allVals.push(v);
         }
       }
     }
-    // Match area to priority freq — exact label first, then specific keyword fallback.
-    // First-word-only matching caused collisions (e.g. "f&b" matched both F&B areas).
     const exactImpFreq = priFreq[areaLabel] ?? 0;
     const impFreq = exactImpFreq > 0 ? exactImpFreq : (() => {
       const KW: Record<string, string> = {
@@ -490,6 +515,7 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
         "Racing & Regattas":    "racing",
         "Social Events":        "social event",
         "Member Service":       "member service",
+        "Marine & Boatyard Condition": "marine",
       };
       const kw = KW[areaLabel] ?? areaLabel.toLowerCase();
       return Object.entries(priFreq)
@@ -506,110 +532,153 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
     });
   }
 
-  // Re-normalise importance so the most-selected area = 1.0 (prevents >100% on chart).
-  // Raw impFreqs can exceed maxPriFreq when a keyword matches multiple Q15/Q16 options.
+  // Detect unmapped sub-categories from Q11–Q14 and create auto areas
+  const unmappedByField: Record<RatingField, Record<string, (number | null)[]>> = {
+    clubhouse_ratings: {}, fnb_ratings: {}, marine_ratings: {}, sailing_ratings: {},
+  };
+  for (const row of rows) {
+    for (const field of ["clubhouse_ratings", "fnb_ratings", "marine_ratings", "sailing_ratings"] as RatingField[]) {
+      const parsed = parseSubRatings(row[R[field]] ?? "");
+      for (const [cat, val] of Object.entries(parsed)) {
+        if (!ALL_MAPPED_SUBCATS.has(cat)) {
+          if (!unmappedByField[field][cat]) unmappedByField[field][cat] = [];
+          unmappedByField[field][cat].push(val);
+        }
+      }
+    }
+  }
+  const FIELD_LABEL: Record<RatingField, string> = {
+    clubhouse_ratings: "Clubhouse", fnb_ratings: "F&B", marine_ratings: "Marine", sailing_ratings: "Sailing",
+  };
+  for (const [field, cats] of Object.entries(unmappedByField) as [RatingField, Record<string, (number | null)[]>][]) {
+    for (const [cat, vals] of Object.entries(cats)) {
+      const valid = vals.filter((v): v is number => v !== null);
+      if (valid.length === 0) continue;
+      area_stats.push({
+        label: `${cat} (${FIELD_LABEL[field]})`,
+        satisfaction: avg(valid),
+        importance: 0,
+        importance_source: "priority_frequency",
+        count: valid.length,
+      });
+    }
+  }
+
+  // Re-normalise importance so the most-selected area = 1.0
   const maxAreaImp = Math.max(...area_stats.map((a) => a.importance), 0.001);
   for (const a of area_stats) a.importance = a.importance / maxAreaImp;
 
   // ── Segment analysis ──────────────────────────────────────────────────────
-  const by_membership_category = buildSegmentStats(merged, R1.membership_category);
-  const by_tenure              = buildSegmentStats(merged, R1.membership_length);
-  const by_visit_freq          = buildSegmentStats(merged, R1.visit_frequency);
-  const by_usage_type          = buildSegmentStats(merged, R1.main_usage);
+  const by_membership_category = buildSegmentStats(rows, R.membership_category);
+  const by_tenure              = buildSegmentStats(rows, R.membership_length);
+  const by_visit_freq          = buildSegmentStats(rows, R.visit_frequency);
+  const by_usage_type          = buildSegmentStats(rows, R.main_usage, true);
 
-  const npsGrouped: Record<string, MergedRow[]> = { Promoters: [], Passives: [], Detractors: [] };
-  for (const row of complete) {
-    const n = parseNps(row[R1.nps_score]);
+  const npsGrouped: Record<string, Row[]> = { Promoters: [], Passives: [], Detractors: [] };
+  for (const row of rows) {
+    const n = parseNps(row[R.nps_score]);
     if (n === null) continue;
     if (n >= 9) npsGrouped["Promoters"].push(row);
     else if (n >= 7) npsGrouped["Passives"].push(row);
     else npsGrouped["Detractors"].push(row);
   }
   const by_nps_group: Record<string, SurveySegmentStat> = {};
-  for (const [grp, rows] of Object.entries(npsGrouped)) {
-    const sats = rows.map((r) => parseRating(r[R1.satisfaction_overall])).filter((v): v is number => v !== null);
+  for (const [grp, grpRows] of Object.entries(npsGrouped)) {
+    const sats = grpRows.map((r) => parseRating(r[R.satisfaction_overall])).filter((v): v is number => v !== null);
     by_nps_group[grp] = {
-      count: rows.length, avg_satisfaction: avg(sats), nps_score: 0,
-      top_priorities: [], low_sample: rows.length < 10,
+      count: grpRows.length, avg_satisfaction: avg(sats), nps_score: 0,
+      top_priorities: [], low_sample: grpRows.length < 10,
     };
   }
 
   // ── Distributions ─────────────────────────────────────────────────────────
-  function dist(rows: MergedRow[], field: string): Record<string, number> {
+  function dist(allRows: Row[], field: string): Record<string, number> {
     const d: Record<string, number> = {};
-    for (const r of rows) {
+    for (const r of allRows) {
       const v = (r[field] ?? "").trim();
       if (v) d[normBilingual(v)] = (d[normBilingual(v)] ?? 0) + 1;
     }
     return d;
   }
-  const tenure_dist              = dist(merged, R1.membership_length);
-  const visit_freq_dist          = dist(merged, R1.visit_frequency);
-  const usage_type_dist          = dist(merged, R1.main_usage);
-  const membership_category_dist = dist(merged, R1.membership_category);
-  const improvement_trend_dist   = dist(merged, R1.improvement_trend);
+  const tenure_dist              = dist(rows, R.membership_length);
+  const visit_freq_dist          = dist(rows, R.visit_frequency);
+  const membership_category_dist = dist(rows, R.membership_category);
+  const improvement_trend_dist   = dist(rows, R.improvement_trend);
+
+  // Q3 is now multi-select — usage_type_dist counts all selected options
+  const usageFreq: Record<string, number> = {};
+  for (const row of rows) {
+    for (const item of parseMultiSelect(row[R.main_usage] ?? "")) {
+      usageFreq[item] = (usageFreq[item] ?? 0) + 1;
+    }
+  }
+  const usage_type_dist = usageFreq;
 
   // ── Communication channels ────────────────────────────────────────────────
-  const chFreq: Record<string, number> = {};
-  for (const row of merged) {
-    for (const ch of parseMultiSelect(row[R1.comm_channels])) {
-      chFreq[ch] = (chFreq[ch] ?? 0) + 1;
-    }
-  }
-  const comm_channels = Object.entries(chFreq)
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, count]) => ({ label, count, pct: Math.round((count / (merged.length || 1)) * 100) }));
-
-  // Q20 — content types members want more of (multi-select)
-  const infoWantedFreq: Record<string, number> = {};
-  for (const row of merged) {
-    for (const item of parseMultiSelect(row[R1.comm_info_wanted])) {
-      infoWantedFreq[item] = (infoWantedFreq[item] ?? 0) + 1;
-    }
-  }
-  const comm_info_wanted = Object.entries(infoWantedFreq)
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, count]) => ({ label, count, pct: Math.round((count / (merged.length || 1)) * 100) }));
+  const comm_channels    = freqDist(rows, R.comm_channels, true);
+  const comm_info_wanted = freqDist(rows, R.comm_info_wanted, true);
 
   // Scalar ratings
-  const commSatVals = complete.map((r) => parseRating(r[R1.comm_satisfaction])).filter((v): v is number => v !== null);
-  const websiteVals = complete.map((r) => parseRating(r[R2.website_rating])).filter((v): v is number => v !== null);
-  const valueVals   = complete.map((r) => parseRating(r[R2.membership_value])).filter((v): v is number => v !== null);
+  const commSatVals = rows.map((r) => parseRating(r[R.comm_satisfaction])).filter((v): v is number => v !== null);
+  const websiteVals = rows.map((r) => parseRating(r[R.website_rating])).filter((v): v is number => v !== null);
+  const valueVals   = rows.map((r) => parseRating(r[R.membership_value])).filter((v): v is number => v !== null);
 
   // Referral programme awareness (Q23 — Yes / No)
-  const referralVals = complete.map((r) => parseReferralAware(r[R2.referral_aware]));
+  const referralVals = rows.map((r) => parseReferralAware(r[R.referral_aware]));
   const referralYes  = referralVals.filter((v) => v === "yes").length;
   const referralNo   = referralVals.filter((v) => v === "no").length;
   const referralN    = referralVals.filter((v) => v !== null).length || 1;
 
-  // Member privilege value (Q25 — 5-point scale, "not aware" excluded)
-  const privVals          = complete.map((r) => parsePrivilegeValue(r[R2.privilege_value]));
+  // Member privilege value (Q24 — 5-point scale, "not aware" excluded)
+  const privVals          = rows.map((r) => parsePrivilegeValue(r[R.privilege_value]));
   const avgPrivilegeValue = avg(privVals);
-  const privNotAwareCount = complete.filter((r) => normBilingual(r[R2.privilege_value] ?? "").toLowerCase().startsWith("i am not aware")).length;
+  const privNotAwareCount = rows.filter((r) => normBilingual(r[R.privilege_value] ?? "").toLowerCase().startsWith("i am not aware")).length;
   const privilegeValueDist: Record<string, number> = {};
-  for (const row of complete) {
-    const v = normBilingual(row[R2.privilege_value] ?? "");
+  for (const row of rows) {
+    const v = normBilingual(row[R.privilege_value] ?? "");
     if (v && !v.toLowerCase().startsWith("i am not aware")) {
       privilegeValueDist[v] = (privilegeValueDist[v] ?? 0) + 1;
     }
   }
 
   // Referral programme attractiveness (Q23a — conditional, only answered when Q23 = Yes)
-  const refAttrVals = complete
-    .map((r) => parseRating(r[R2.referral_attractive]))
+  const refAttrVals = rows
+    .map((r) => parseRating(r[R.referral_attractive]))
     .filter((v): v is number => v !== null);
   const avgReferralAttractive = refAttrVals.length > 0 ? avg(refAttrVals) : 0;
   const referralAttractiveDist: Record<string, number> = {};
-  for (const row of complete) {
-    const v = normBilingual(row[R2.referral_attractive] ?? "");
+  for (const row of rows) {
+    const v = normBilingual(row[R.referral_attractive] ?? "");
     if (v) referralAttractiveDist[v] = (referralAttractiveDist[v] ?? 0) + 1;
   }
 
+  // ── New questions ─────────────────────────────────────────────────────────
+
+  // Qc — Marine & Boatyard satisfaction (1–5)
+  const marineBoatyardVals = rows.map((r) => parseRating(r[R.marine_boatyard_sat])).filter((v): v is number => v !== null);
+  const marineBoatyardDist: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+  for (const v of marineBoatyardVals) marineBoatyardDist[String(v)]++;
+
+  // Qca — Marine upgrade frequency
+  const marine_boatyard_upgrade_freq = freqDist(rows, R.marine_boatyard_freq);
+
+  // Q11a — Additional facilities wanted (multi-select)
+  const additional_facilities = freqDist(rows, R.additional_facilities, true);
+
+  // Q25 — Dogs on balcony (categorical with 3+ options)
+  const dogs_on_balcony = freqDist(rows, R.dogs_on_balcony);
+
+  // Q26 — Core values (open text or multi-select)
+  const core_values = freqDist(rows, R.core_values, true);
+
+  // Q27 — Social responsibility (multi-select)
+  const social_responsibility = freqDist(rows, R.social_responsibility, true);
+
   // ── Comment collection + theme coding ─────────────────────────────────────
   const allComments: { segment?: string; lang?: "en" | "zh"; text: string }[] = [];
-  const textSources = [R1.nps_reason, R1.best_thing, R1.improve_thing, R1.highest_priority, R2.referral_improve, R2.final_comments];
-  for (const row of merged) {
-    const seg = row[R1.membership_category] ? normBilingual(row[R1.membership_category]) : undefined;
+  const textSources = [R.nps_reason, R.best_thing, R.improve_thing, R.highest_priority, R.referral_improve, R.final_comments, R.main_usage_other, R.core_values];
+  for (const row of rows) {
+    const seg = row[R.membership_category] ? normBilingual(row[R.membership_category]) : undefined;
     for (const field of textSources) {
       const text = (row[field] ?? "").trim();
       if (text && text.toLowerCase() !== "test") allComments.push({ segment: seg, lang: detectLang(text), text });
@@ -624,18 +693,17 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
 
   // ── Data quality ─────────────────────────────────────────────────────────
   const missingFields: string[] = [];
-  if (complete.length > 0) {
-    const sample = complete[0];
-    if (!sample[R1.satisfaction_overall]) missingFields.push("Q5 overall satisfaction");
-    if (!sample[R1.nps_score])            missingFields.push("Q6 NPS score");
-    if (!sample[R1.membership_category])  missingFields.push("Q1 membership category");
+  if (rows.length > 0) {
+    const sample = rows[0];
+    if (!sample[R.satisfaction_overall]) missingFields.push("Q5 overall satisfaction");
+    if (!sample[R.nps_score])            missingFields.push("Q6 NPS score");
+    if (!sample[R.membership_category])  missingFields.push("Q1 membership category");
   }
 
   const data_quality: SurveyDataQuality = {
-    r1_rows: r1Len, r2_rows: r2Len,
-    matched_complete: complete.length,
-    unmatched_r1, unmatched_r2,
-    join_method: `Entry ID (WPForms)`,
+    total_rows: rows.length,
+    valid_rows: rows.filter((r) => r[R.satisfaction_overall] || r[R.nps_score]).length,
+    source_sheet: "Response (single sheet)",
     missing_fields: missingFields,
   };
 
@@ -662,6 +730,13 @@ function computeInsights(merged: MergedRow[], unmatched_r1: number, unmatched_r2
     comm_satisfaction:      avg(commSatVals),
     website_rating:         avg(websiteVals),
     membership_value:       avg(valueVals),
+    marine_boatyard_satisfaction:      avg(marineBoatyardVals),
+    marine_boatyard_satisfaction_dist: marineBoatyardDist,
+    marine_boatyard_upgrade_freq,
+    additional_facilities,
+    dogs_on_balcony,
+    core_values,
+    social_responsibility,
     referral_aware:             { yes: referralYes, no: referralNo, pct_aware: Math.round((referralYes / referralN) * 100) },
     avg_referral_attractive:    avgReferralAttractive,
     referral_attractive_dist:   referralAttractiveDist,
@@ -688,7 +763,6 @@ export async function GET(request: Request) {
     const bust  = params.has("bust");
     const debug = params.has("debug");
 
-    // Cache check FIRST — skip sheets read entirely on a cache hit
     if (!bust && !debug) {
       try {
         const cached = await kvGet<SurveyInsights>(KV_KEY);
@@ -698,29 +772,19 @@ export async function GET(request: Request) {
       }
     }
 
-    // Read both sheets in parallel (only when cache misses or bust/debug)
-    const [r1Rows, r2Rows] = await Promise.all([
-      readRawSheet(SURVEY_SHEET_ID, "Response!A:AZ"),
-      readRawSheet(SURVEY_SHEET_ID, "Response2!A:AZ"),
-    ]);
+    // Single sheet read — Response2 no longer exists
+    const rows = await readRawSheet(SURVEY_SHEET_ID, "Response!A:AZ");
 
-    // Debug: return raw structure
     if (debug) {
-      const { merged, unmatched_r1, unmatched_r2 } = mergeSheets(r1Rows, r2Rows);
       return NextResponse.json({
-        r1: { headers: r1Rows.length > 0 ? Object.keys(r1Rows[0]) : [], total_rows: r1Rows.length, sample: r1Rows.slice(0, 2) },
-        r2: { headers: r2Rows.length > 0 ? Object.keys(r2Rows[0]) : [], total_rows: r2Rows.length, sample: r2Rows.slice(0, 2) },
-        join_key: JOIN_KEY,
-        merge_preview: {
-          matched_complete: merged.filter((r) => !isPartial(r)).length,
-          unmatched_r1,
-          unmatched_r2,
-        },
+        headers: rows.length > 0 ? Object.keys(rows[0]) : [],
+        total_rows: rows.length,
+        sample: rows.slice(0, 2),
+        source_sheet: "Response",
       });
     }
 
-    const { merged, unmatched_r1, unmatched_r2 } = mergeSheets(r1Rows, r2Rows);
-    const payload = computeInsights(merged, unmatched_r1, unmatched_r2, r1Rows.length, r2Rows.length);
+    const payload = computeInsights(rows);
     try { await kvSet(KV_KEY, payload, CACHE_TTL); } catch { /* non-fatal */ }
     return NextResponse.json(payload);
   } catch (err) {
