@@ -3,14 +3,14 @@ import { kvGet, kvSet } from "@/lib/kv";
 import { fetchSheetContacts } from "@/tools/google-sheets";
 import type { MemberTrendStats, MemberTrendEntry } from "@/lib/types";
 
-const KV_KEY = "sync:member_trend_v8";
+const KV_KEY = "sync:member_trend_v9";
 const CACHE_TTL = 3600; // 1 hour
 
-// 12 members are Absent but were never added to the synced Google Sheet because they
-// opted out of receiving the EDM entirely. They exist in HHYC's membership records but
-// have no row here, so sheet data can't detect them — tracked manually until they're
-// added to the sheet.
-const MANUAL_ABSENT_NOT_IN_SHEET = 12;
+// 12 active members exist in HHYC's membership records but were never added to the
+// synced Google Sheet because they opted out of receiving the EDM entirely. Since
+// they have no row in the sheet, `qualifying` undercounts real active members by
+// this amount — add it back until they're added to the sheet.
+const MANUAL_MEMBERS_NOT_IN_SHEET = 12;
 
 function isNonMember(membership: string): boolean {
   const m = (membership ?? "").toLowerCase().replace(/[_\-\s]+/g, "");
@@ -143,9 +143,9 @@ export async function GET(request: Request) {
 
   const current = {
     total: qualifying.length,
-    active: qualifying.length - resignedN - absentN - MANUAL_ABSENT_NOT_IN_SHEET,
+    active: qualifying.length - resignedN - absentN + MANUAL_MEMBERS_NOT_IN_SHEET,
     resigned: resignedN,
-    absent: absentN + MANUAL_ABSENT_NOT_IN_SHEET,
+    absent: absentN,
     non_member: nonMembers.length,
   };
 
