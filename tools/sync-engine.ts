@@ -395,7 +395,7 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"], force = fals
 
   kvDel(KV_PROGRESS).catch(() => {});
   kvDel(KV_MEMBERSHIP_STATS).catch(() => {}); // invalidate so next page load recomputes
-  kvDel("sync:member_trend_v7").catch(() => {}); // invalidate so dashboard recomputes from fresh sheet data
+  kvDel("sync:member_trend_v9").catch(() => {}); // invalidate so dashboard recomputes from fresh sheet data
 
   return log;
 }
