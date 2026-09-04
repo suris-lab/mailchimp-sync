@@ -4,7 +4,7 @@
 // SETUP:
 // 1. Open your Google Sheet
 // 2. Extensions > Apps Script > paste this entire file > Save (Ctrl+S)
-// 3. Update WEBHOOK_URL and WEBHOOK_SECRET below
+// 3. Update WEBHOOK_URL to https://mc.xxiihk.com/api/webhook and set WEBHOOK_SECRET below
 // 4. Click the clock icon (Triggers) > Add Trigger
 //    - Function: onSheetEdit
 //    - Event source: From spreadsheet
@@ -12,6 +12,9 @@
 //    - Click Save and grant permissions
 // 5. Add a second trigger with event type: On change
 //    (catches bulk pastes and imports)
+// 6. Add a time-driven trigger for hourlySync, every hour.
+//    This is the reconciliation fallback because Vercel Hobby permits one cron
+//    and that cron is reserved for the daily Supabase backup.
 // ============================================================
 
 var WEBHOOK_URL = 'https://your-app.vercel.app/api/webhook';
@@ -52,6 +55,11 @@ function onSheetEdit(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Install this as a time-driven Apps Script trigger, every hour.
+function hourlySync() {
+  onSheetEdit(null);
 }
 
 // Adds a "Sync" menu to the sheet for manual on-demand syncs
