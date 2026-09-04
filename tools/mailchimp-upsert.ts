@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { SheetContact, ContactSyncResult } from "@/lib/types";
 import { FIELD_MAP, TAG_COLUMNS, buildTagName } from "@/lib/field-map";
 import { kvGet, kvSet } from "@/lib/kv";
+import { getMailchimpServerPrefix } from "@/lib/mailchimp";
 
 const BATCH_SIZE = 500;
 const TAG_CONCURRENCY = 10; // Mailchimp allows max 10 simultaneous connections
@@ -47,7 +48,7 @@ async function getMailchimp() {
   const mc = (await import("@mailchimp/mailchimp_marketing")).default as typeof import("@mailchimp/mailchimp_marketing");
   mc.setConfig({
     apiKey: process.env.MAILCHIMP_API_KEY!,
-    server: process.env.MAILCHIMP_SERVER_PREFIX!,
+    server: getMailchimpServerPrefix(),
   });
   return mc;
 }

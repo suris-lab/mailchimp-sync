@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { kvGet, kvSet } from "@/lib/kv";
+import { getMailchimpServerPrefix } from "@/lib/mailchimp";
 import type { MailchimpAutomation, MailchimpAutomationsResponse, AutomationStatus } from "@/lib/types";
 
 const KV_KEY = "mc:automations";
@@ -10,7 +11,7 @@ async function getMailchimp() {
   const mc = ((await import("@mailchimp/mailchimp_marketing")).default) as any;
   mc.setConfig({
     apiKey: process.env.MAILCHIMP_API_KEY!,
-    server: process.env.MAILCHIMP_SERVER_PREFIX!,
+    server: getMailchimpServerPrefix(),
   });
   return mc;
 }
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
     const debug = params.has("debug");
 
     const apiKey = process.env.MAILCHIMP_API_KEY!;
-    const server = process.env.MAILCHIMP_SERVER_PREFIX!;
+    const server = getMailchimpServerPrefix();
     const authHeader = `Basic ${Buffer.from(`anystring:${apiKey}`).toString("base64")}`;
     const mc = await getMailchimp();
 
