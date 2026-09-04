@@ -278,12 +278,38 @@ export async function runSync(triggeredBy: SyncLog["triggered_by"], force = fals
     const updatedFp: Record<string, ContactFpEntry> = { ...savedFp };
     let fpDirty = false;
 
+    // Mailchimp's batch endpoint rejects the *entire* request if an email appears
+    // more than once. Keep the source row conflict visible, but isolate it so one
+    // duplicate Email1 cannot block unrelated contacts from syncing.
+    const rowsByEmail = new Map<string, number[]>();
+    for (const c of allContacts) {
+      const key = stableKey(c);
+      const rows = rowsByEmail.get(key) ?? [];
+      rows.push(c.rowIndex + 1); // Sheet rows are 1-based for the operator
+      rowsByEmail.set(key, rows);
+    }
+
     const contacts: SheetContact[] = [];
+    const reportedDuplicateEmails = new Set<string>();
     for (const c of allContacts) {
       const key = stableKey(c);
       const saved = savedFp[key];
       const currentFp = fullFingerprint(c);
       if (!saved || saved.fp !== currentFp) {
+        const duplicateRows = rowsByEmail.get(key) ?? [];
+        if (duplicateRows.length > 1) {
+          if (!reportedDuplicateEmails.has(key)) {
+            errors++;
+            if (error_details.length < 10) {
+              error_details.push(
+                `skipped:${c.email}: duplicate Email1 in Sheet rows ${duplicateRows.join(", ")}; resolve the source conflict before syncing this address`,
+              );
+            }
+            reportedDuplicateEmails.add(key);
+          }
+          continue;
+        }
+
         // Unsubscribed contacts must never be sent to Mailchimp (compliance).
         // Save their fingerprint so they are not re-detected on the next sync.
         if (unsubscribedEmails.has(c.email.toLowerCase())) {
