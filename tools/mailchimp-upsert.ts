@@ -16,6 +16,27 @@ function emailMd5(email: string): string {
   return createHash("md5").update(email.toLowerCase().trim()).digest("hex");
 }
 
+// The Mailchimp SDK's default Error string often contains only "Forbidden".
+// Preserve its safe API diagnostic fields in the sync log so an operator can
+// distinguish an invalid key, insufficient role, and contact-compliance case
+// without exposing request headers or API credentials.
+function describeMailchimpError(err: unknown): string {
+  const error = err as {
+    message?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+    response?: { body?: unknown; status?: unknown };
+  };
+  const body = error.response?.body as { title?: unknown; detail?: unknown } | undefined;
+  const status = error.status ?? error.statusCode ?? error.response?.status;
+  const message = typeof error.message === "string" ? error.message : String(err);
+  const title = typeof body?.title === "string" ? body.title : "";
+  const detail = typeof body?.detail === "string" ? body.detail : "";
+  return [status ? `HTTP ${status}` : "", title, detail, message]
+    .filter((part, index, parts) => Boolean(part) && parts.indexOf(part) === index)
+    .join(" — ") || "Mailchimp request failed";
+}
+
 function splitName(fullName: string): { firstName: string; lastName: string } {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length === 1) return { firstName: parts[0], lastName: "" };
@@ -139,7 +160,8 @@ export async function upsertContacts(
       for (const m of res.updated_members ?? []) results.push({ email: m.email_address, status: "updated" });
       for (const e of res.errors ?? [])          results.push({ email: e.email_address ?? "unknown", status: "error", error: e.error });
     } catch (err) {
-      batch.forEach((c) => results.push({ email: c.email, status: "error", error: String(err) }));
+      const error = describeMailchimpError(err);
+      batch.forEach((c) => results.push({ email: c.email, status: "error", error }));
     }
     onProgress?.(Math.min(i + BATCH_SIZE, contacts.length));
   }
@@ -175,7 +197,7 @@ export async function upsertContacts(
       );
       updatedFingerprints[email] = fp;
     } catch (err) {
-      tagErrors.push(`tag:${contact.email}: ${String(err)}`);
+      tagErrors.push(`tag:${contact.email}: ${describeMailchimpError(err)}`);
     }
   });
 
