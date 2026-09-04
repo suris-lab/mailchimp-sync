@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { kvGet, kvSet } from "@/lib/kv";
 import type { CampaignRecord, CampaignStats, CampaignCategory } from "@/lib/types";
+
+export const maxDuration = 30;
+
+const CACHE_TTL_SECONDS = 300;
+const MAILCHIMP_TIMEOUT_MS = 20_000;
+const MAX_REPORTS = 100;
 
 function categorize(subject: string): CampaignCategory {
   const s = subject.toLowerCase();
@@ -18,6 +25,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const start = searchParams.get("start") ?? "";
   const end   = searchParams.get("end")   ?? "";
+  const cacheKey = `campaigns:stats:${start || "all"}:${end || "all"}`;
+  const cached = await kvGet<CampaignStats>(cacheKey).catch(() => null);
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,11 +36,16 @@ export async function GET(req: NextRequest) {
       server: process.env.MAILCHIMP_SERVER_PREFIX!,
     });
 
-    const res = await mc.reports.getAllCampaignReports({
-      count: 500,
-      ...(start && { since_send_time: `${start}T00:00:00+00:00` }),
-      ...(end   && { before_send_time: `${end}T23:59:59+00:00` }),
-    });
+    const res = await Promise.race([
+      mc.reports.getAllCampaignReports({
+        count: MAX_REPORTS,
+        ...(start && { since_send_time: `${start}T00:00:00+00:00` }),
+        ...(end   && { before_send_time: `${end}T23:59:59+00:00` }),
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Mailchimp campaign report timed out")), MAILCHIMP_TIMEOUT_MS);
+      }),
+    ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw: any[] = res?.reports ?? [];
@@ -65,8 +79,15 @@ export async function GET(req: NextRequest) {
       totals: { count, total_sent, avg_open_rate, avg_ctr },
     };
 
+    await kvSet(cacheKey, stats, CACHE_TTL_SECONDS).catch(() => {});
     return NextResponse.json(stats);
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    if (cached) {
+      return NextResponse.json(
+        { ...cached, stale: true },
+        { headers: { "X-Data-Status": "stale" } },
+      );
+    }
+    return NextResponse.json({ error: String(err) }, { status: 504 });
   }
 }

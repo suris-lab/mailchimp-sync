@@ -1,12 +1,13 @@
 import { timingSafeEqual } from "crypto";
+import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, kvDel } from "@/lib/kv";
 import { runSync } from "@/tools/sync-engine";
 
-export const maxDuration = 10;
+export const maxDuration = 300;
 
 const KV_LOCK = "sync:lock";
-const LOCK_TTL_SECONDS = 120;
+const LOCK_TTL_SECONDS = 360;
 
 function validateSecret(provided: string | null): boolean {
   const expected = process.env.WEBHOOK_SECRET;
@@ -34,14 +35,15 @@ export async function POST(req: NextRequest) {
 
   await kvSet(KV_LOCK, true, LOCK_TTL_SECONDS);
 
-  // Run sync in background — respond immediately so Apps Script doesn't time out
-  (async () => {
+  // `after` keeps the work attached to this Vercel invocation after the fast
+  // acknowledgement is sent to Apps Script; a detached promise may be dropped.
+  after(async () => {
     try {
       await runSync("webhook");
     } finally {
       await kvDel(KV_LOCK);
     }
-  })();
+  });
 
   return NextResponse.json({ status: "accepted" });
 }

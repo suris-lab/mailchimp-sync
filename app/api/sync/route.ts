@@ -14,7 +14,7 @@ export const maxDuration = 300;
 
 const KV_LOCK = "sync:lock";
 const KV_CRON_STATUS = "sync:cron_status";
-const LOCK_TTL_SECONDS = 120;
+const LOCK_TTL_SECONDS = 360;
 
 async function setCronStatus(status: CronStatus) {
   await kvSet(KV_CRON_STATUS, status).catch(() => {});
