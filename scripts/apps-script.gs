@@ -49,14 +49,6 @@ function columnFor(columns, name) {
   return columns[name.toLowerCase()];
 }
 
-function isMember(membership) {
-  var value = String(membership || '').trim().toLowerCase();
-  return value.indexOf('member') !== -1 &&
-    value.indexOf('non-member') === -1 &&
-    value.indexOf('non_member') === -1 &&
-    value.indexOf('backup') === -1;
-}
-
 function editIncludesColumn(range, column) {
   return column >= range.getColumn() && column < range.getColumn() + range.getNumColumns();
 }
@@ -106,10 +98,12 @@ function stampMembershipTimeline(e) {
     var modifier = row[modifierColumn - 1];
     var hasIdentity = String(memberId || '').trim() || String(email || '').trim();
 
-    // A member is considered newly added only when the edit included an identity
-    // or membership field and CreatedAt is still blank. This avoids altering old
-    // rows merely because another field is edited later.
-    var newMember = canStampNewMember && hasIdentity && isMember(membership) && !createdAt &&
+    // A new row is identified by an ID/email, a non-blank Membership value, and
+    // a blank CreatedAt. Do not require a literal "Member" label: the Sheet's
+    // membership dropdown can use shorter labels such as Cadet or Associate.
+    // Requiring the edited identity/membership field avoids altering old rows
+    // merely because another field is edited later.
+    var newMember = canStampNewMember && hasIdentity && String(membership).trim() && !createdAt &&
       (membershipEdited || memberIdEdited || emailEdited);
     if (newMember) {
       sheet.getRange(rowNumber, createdAtColumn).setValue(stamp);
