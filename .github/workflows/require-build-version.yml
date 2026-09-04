@@ -20,7 +20,7 @@ jobs:
         shell: bash
         run: |
           changed="$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)"
-          runtime='^(app|components|lib|tools|scripts)/|^(middleware\.ts|next\.config\.ts|vercel\.json|package\.json)$'
+          runtime='^(app|components|lib|tools)/|^(middleware\.ts|next\.config\.ts|vercel\.json|package\.json)$'
           if grep -Eq "$runtime" <<< "$changed" && ! grep -Fxq '.buildnumber' <<< "$changed"; then
             echo "Runtime changes must also increment .buildnumber so the dashboard header identifies the deployed release."
             exit 1

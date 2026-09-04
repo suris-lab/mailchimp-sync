@@ -71,37 +71,37 @@ function stampMembershipTimeline(e) {
 
   var range = e.range;
   var sheet = range.getSheet();
-  if (range.getRow() === 1) return;
+  if (range.getLastRow() < 2) return;
 
   var columns = headerColumns(sheet);
-  var required = [HEADER.MEMBER_ID, HEADER.EMAIL, HEADER.MEMBERSHIP, HEADER.MEMBERSHIP_MODIFIER, HEADER.CREATED_AT, HEADER.UPDATED_AT];
-  if (!required.every(function(name) { return columnFor(columns, name); })) {
-    Logger.log('Timeline stamps skipped: required headers are missing');
+  var modifierColumn = columnFor(columns, HEADER.MEMBERSHIP_MODIFIER);
+  var updatedAtColumn = columnFor(columns, HEADER.UPDATED_AT);
+  if (!modifierColumn || !updatedAtColumn) {
+    Logger.log('Timeline stamps skipped: Membership_Modifier or UpdatedAt header is missing');
     return;
   }
 
   var memberIdColumn = columnFor(columns, HEADER.MEMBER_ID);
   var emailColumn = columnFor(columns, HEADER.EMAIL);
   var membershipColumn = columnFor(columns, HEADER.MEMBERSHIP);
-  var modifierColumn = columnFor(columns, HEADER.MEMBERSHIP_MODIFIER);
   var createdAtColumn = columnFor(columns, HEADER.CREATED_AT);
-  var updatedAtColumn = columnFor(columns, HEADER.UPDATED_AT);
-  var membershipEdited = editIncludesColumn(range, membershipColumn);
-  var memberIdEdited = editIncludesColumn(range, memberIdColumn);
-  var emailEdited = editIncludesColumn(range, emailColumn);
+  var membershipEdited = membershipColumn && editIncludesColumn(range, membershipColumn);
+  var memberIdEdited = memberIdColumn && editIncludesColumn(range, memberIdColumn);
+  var emailEdited = emailColumn && editIncludesColumn(range, emailColumn);
   var modifierEdited = editIncludesColumn(range, modifierColumn);
-  var rowCount = range.getNumRows();
-  var firstRow = range.getRow();
+  var firstRow = Math.max(range.getRow(), 2);
+  var rowCount = range.getLastRow() - firstRow + 1;
   var width = sheet.getLastColumn();
   var rows = sheet.getRange(firstRow, 1, rowCount, width).getDisplayValues();
   var stamp = timestampNow();
+  var canStampNewMember = membershipColumn && createdAtColumn && (memberIdColumn || emailColumn);
 
   rows.forEach(function(row, offset) {
     var rowNumber = firstRow + offset;
-    var membership = row[membershipColumn - 1];
-    var memberId = row[memberIdColumn - 1];
-    var email = row[emailColumn - 1];
-    var createdAt = row[createdAtColumn - 1];
+    var membership = membershipColumn ? row[membershipColumn - 1] : '';
+    var memberId = memberIdColumn ? row[memberIdColumn - 1] : '';
+    var email = emailColumn ? row[emailColumn - 1] : '';
+    var createdAt = createdAtColumn ? row[createdAtColumn - 1] : '';
     var updatedAt = row[updatedAtColumn - 1];
     var modifier = row[modifierColumn - 1];
     var hasIdentity = String(memberId || '').trim() || String(email || '').trim();
@@ -109,7 +109,7 @@ function stampMembershipTimeline(e) {
     // A member is considered newly added only when the edit included an identity
     // or membership field and CreatedAt is still blank. This avoids altering old
     // rows merely because another field is edited later.
-    var newMember = hasIdentity && isMember(membership) && !createdAt &&
+    var newMember = canStampNewMember && hasIdentity && isMember(membership) && !createdAt &&
       (membershipEdited || memberIdEdited || emailEdited);
     if (newMember) {
       sheet.getRange(rowNumber, createdAtColumn).setValue(stamp);
@@ -124,6 +124,18 @@ function stampMembershipTimeline(e) {
   });
 }
 
+// A simple trigger runs automatically on every user edit in this bound Sheet.
+// It only writes timestamps, so it works without installing or authorising a
+// webhook trigger. The network sync remains in the installable onSheetEdit
+// trigger below.
+function onEdit(e) {
+  try {
+    stampMembershipTimeline(e);
+  } catch (err) {
+    Logger.log('Timeline stamp error: ' + err.toString());
+  }
+}
+
 function onSheetEdit(e) {
   var lock = LockService.getScriptLock();
   // Debounce: if another trigger fired in the last 10s, skip
@@ -133,7 +145,6 @@ function onSheetEdit(e) {
   }
 
   try {
-    stampMembershipTimeline(e);
     var sheet = (e && e.source) ? e.source : SpreadsheetApp.getActiveSpreadsheet();
     triggerWebhook(sheet, e);
   } catch (err) {
