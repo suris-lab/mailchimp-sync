@@ -40,9 +40,13 @@ function headerColumns(sheet) {
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
   var columns = {};
   headers.forEach(function(header, index) {
-    columns[String(header).trim()] = index + 1;
+    columns[String(header).trim().toLowerCase()] = index + 1;
   });
   return columns;
+}
+
+function columnFor(columns, name) {
+  return columns[name.toLowerCase()];
 }
 
 function isMember(membership) {
@@ -59,7 +63,7 @@ function editIncludesColumn(range, column) {
 
 // Maintains the audit dates that power the dashboard's member trend:
 // - a new member gets CreatedAt and UpdatedAt if they are blank;
-// - changing Membership_Modifier to Member_Resigned records UpdatedAt.
+// - setting Membership_Modifier to any non-blank value records UpdatedAt.
 // Dates are written only for rows touched by an actual edit, never by a scan
 // of historical data, so existing records cannot be accidentally re-dated.
 function stampMembershipTimeline(e) {
@@ -71,15 +75,21 @@ function stampMembershipTimeline(e) {
 
   var columns = headerColumns(sheet);
   var required = [HEADER.MEMBER_ID, HEADER.EMAIL, HEADER.MEMBERSHIP, HEADER.MEMBERSHIP_MODIFIER, HEADER.CREATED_AT, HEADER.UPDATED_AT];
-  if (!required.every(function(name) { return columns[name]; })) {
+  if (!required.every(function(name) { return columnFor(columns, name); })) {
     Logger.log('Timeline stamps skipped: required headers are missing');
     return;
   }
 
-  var membershipEdited = editIncludesColumn(range, columns[HEADER.MEMBERSHIP]);
-  var memberIdEdited = editIncludesColumn(range, columns[HEADER.MEMBER_ID]);
-  var emailEdited = editIncludesColumn(range, columns[HEADER.EMAIL]);
-  var modifierEdited = editIncludesColumn(range, columns[HEADER.MEMBERSHIP_MODIFIER]);
+  var memberIdColumn = columnFor(columns, HEADER.MEMBER_ID);
+  var emailColumn = columnFor(columns, HEADER.EMAIL);
+  var membershipColumn = columnFor(columns, HEADER.MEMBERSHIP);
+  var modifierColumn = columnFor(columns, HEADER.MEMBERSHIP_MODIFIER);
+  var createdAtColumn = columnFor(columns, HEADER.CREATED_AT);
+  var updatedAtColumn = columnFor(columns, HEADER.UPDATED_AT);
+  var membershipEdited = editIncludesColumn(range, membershipColumn);
+  var memberIdEdited = editIncludesColumn(range, memberIdColumn);
+  var emailEdited = editIncludesColumn(range, emailColumn);
+  var modifierEdited = editIncludesColumn(range, modifierColumn);
   var rowCount = range.getNumRows();
   var firstRow = range.getRow();
   var width = sheet.getLastColumn();
@@ -88,12 +98,12 @@ function stampMembershipTimeline(e) {
 
   rows.forEach(function(row, offset) {
     var rowNumber = firstRow + offset;
-    var membership = row[columns[HEADER.MEMBERSHIP] - 1];
-    var memberId = row[columns[HEADER.MEMBER_ID] - 1];
-    var email = row[columns[HEADER.EMAIL] - 1];
-    var createdAt = row[columns[HEADER.CREATED_AT] - 1];
-    var updatedAt = row[columns[HEADER.UPDATED_AT] - 1];
-    var modifier = row[columns[HEADER.MEMBERSHIP_MODIFIER] - 1];
+    var membership = row[membershipColumn - 1];
+    var memberId = row[memberIdColumn - 1];
+    var email = row[emailColumn - 1];
+    var createdAt = row[createdAtColumn - 1];
+    var updatedAt = row[updatedAtColumn - 1];
+    var modifier = row[modifierColumn - 1];
     var hasIdentity = String(memberId || '').trim() || String(email || '').trim();
 
     // A member is considered newly added only when the edit included an identity
@@ -102,12 +112,14 @@ function stampMembershipTimeline(e) {
     var newMember = hasIdentity && isMember(membership) && !createdAt &&
       (membershipEdited || memberIdEdited || emailEdited);
     if (newMember) {
-      sheet.getRange(rowNumber, columns[HEADER.CREATED_AT]).setValue(stamp);
-      if (!updatedAt) sheet.getRange(rowNumber, columns[HEADER.UPDATED_AT]).setValue(stamp);
+      sheet.getRange(rowNumber, createdAtColumn).setValue(stamp);
+      if (!updatedAt) sheet.getRange(rowNumber, updatedAtColumn).setValue(stamp);
     }
 
-    if (modifierEdited && String(modifier).trim() === 'Member_Resigned') {
-      sheet.getRange(rowNumber, columns[HEADER.UPDATED_AT]).setValue(stamp);
+    // Stamp only when the modifier column itself is edited. Re-stamping it on
+    // an unrelated edit would overwrite the date of the actual status change.
+    if (modifierEdited && String(modifier).trim()) {
+      sheet.getRange(rowNumber, updatedAtColumn).setValue(stamp);
     }
   });
 }
