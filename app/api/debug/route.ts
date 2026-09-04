@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getMailchimpServerPrefix } from "@/lib/mailchimp";
 
 async function checkEnvVars() {
   const required = [
@@ -20,7 +21,7 @@ async function checkEnvVars() {
     kv_url_present: !!kvUrl,
     kv_url_format: kvUrl ? (kvUrl.startsWith("https://") ? "ok" : `wrong format: starts with "${kvUrl.slice(0, 10)}..."`) : "missing",
     kv_token_present: !!kvToken,
-    mc_server_prefix: process.env.MAILCHIMP_SERVER_PREFIX ?? "missing",
+    mc_server_prefix: getMailchimpServerPrefix(),
     sheet_range: process.env.SHEET_RANGE ?? "missing",
   };
 }
@@ -67,7 +68,7 @@ async function checkMailchimp() {
     const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
     mc.setConfig({
       apiKey: process.env.MAILCHIMP_API_KEY!,
-      server: process.env.MAILCHIMP_SERVER_PREFIX!,
+      server: getMailchimpServerPrefix(),
     });
     const ping = await mc.ping.get();
     return { ok: ping?.health_status === "Everything's Chimpy!", ping };
@@ -81,7 +82,7 @@ async function checkMergeFields() {
     const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
     mc.setConfig({
       apiKey: process.env.MAILCHIMP_API_KEY!,
-      server: process.env.MAILCHIMP_SERVER_PREFIX!,
+      server: getMailchimpServerPrefix(),
     });
     const res = await mc.lists.getListMergeFields(process.env.MAILCHIMP_AUDIENCE_ID!, { count: 50 });
     const fields = (res.merge_fields ?? []).map((f: any) => ({

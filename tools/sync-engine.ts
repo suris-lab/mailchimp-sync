@@ -4,6 +4,7 @@ import { fetchSheetContacts, getSheetModifiedTime } from "./google-sheets";
 import { upsertContacts } from "./mailchimp-upsert";
 import { validateEmail } from "./validate-emails";
 import { kvGet, kvSet, kvDel, kvLpush } from "@/lib/kv";
+import { getMailchimpServerPrefix } from "@/lib/mailchimp";
 
 const KV_STATS = "sync:stats";
 const KV_LOG_IDS = "sync:log_ids";
@@ -57,7 +58,7 @@ async function computeAudienceStats(allContacts: SheetContact[]): Promise<void> 
     const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
     mc.setConfig({
       apiKey: process.env.MAILCHIMP_API_KEY!,
-      server: process.env.MAILCHIMP_SERVER_PREFIX!,
+      server: getMailchimpServerPrefix(),
     });
     const list = await mc.lists.getList(process.env.MAILCHIMP_AUDIENCE_ID!, {
       fields: ["stats.member_count", "stats.unsubscribe_count"],
@@ -96,7 +97,7 @@ async function computeLifecycleStats(allContacts: SheetContact[]): Promise<void>
   let fetchError: string | undefined;
   try {
     const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
-    mc.setConfig({ apiKey: process.env.MAILCHIMP_API_KEY!, server: process.env.MAILCHIMP_SERVER_PREFIX! });
+    mc.setConfig({ apiKey: process.env.MAILCHIMP_API_KEY!, server: getMailchimpServerPrefix() });
     const res = await mc.lists.getListMembersInfo(audienceId, {
       status: "unsubscribed",
       count: 1000,

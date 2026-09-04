@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet } from "@/lib/kv";
+import { getMailchimpServerPrefix } from "@/lib/mailchimp";
 import type { CampaignRecord, CampaignStats, CampaignCategory } from "@/lib/types";
 
 export const maxDuration = 30;
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
     const mc = ((await import("@mailchimp/mailchimp_marketing")).default) as any;
     mc.setConfig({
       apiKey: process.env.MAILCHIMP_API_KEY!,
-      server: process.env.MAILCHIMP_SERVER_PREFIX!,
+      server: getMailchimpServerPrefix(),
     });
 
     const res = await Promise.race([

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMailchimpServerPrefix } from "@/lib/mailchimp";
 
 export const maxDuration = 30;
 
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   const mc = (await import("@mailchimp/mailchimp_marketing")).default as any;
   mc.setConfig({
     apiKey: process.env.MAILCHIMP_API_KEY!,
-    server: process.env.MAILCHIMP_SERVER_PREFIX!,
+    server: getMailchimpServerPrefix(),
   });
 
   // Create campaign as draft (status "save" is automatic on creation)
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   // Set the generated HTML as campaign content
   await mc.campaigns.setContent(campaignId, { html });
 
-  const dc  = process.env.MAILCHIMP_SERVER_PREFIX ?? "us1";
+  const dc  = getMailchimpServerPrefix();
   const url = `https://${dc}.admin.mailchimp.com/campaigns/edit?id=${webId}`;
 
   return NextResponse.json({ campaignId, url });
