@@ -96,10 +96,14 @@ export async function GET(request: Request) {
   const tagged: Tagged[] = [];
 
   for (const c of contacts) {
-    const date = toISODate(c.createdAt);
+    const mod = (c.membershipModifier ?? "").toLowerCase();
+    // The legacy Sheet workflow records the first entry date in UpdatedAt.
+    // Prefer CreatedAt when present, then use that legacy value only for an
+    // active row with no modifier — never treat a resignation/status change as
+    // a new-member event.
+    const date = toISODate(c.createdAt) ?? (!mod.trim() ? toISODate(c.updatedAt) : null);
     if (!date) continue;
     const qual = !isExcludedMembership(c.membership);
-    const mod = (c.membershipModifier ?? "").toLowerCase();
     tagged.push({
       date,
       qualifying: qual,
