@@ -27,6 +27,7 @@ The source of truth is the configured Google Sheet. The sync adds new Mailchimp 
 | Vercel project | This checkout is linked to `suris-lab/mailchimp-sync`. The production deployment was refreshed successfully on 4 September 2026 after the public app URL update. |
 | Production variables | All required service variable names are configured. Vercel correctly prevents sensitive production values from being downloaded into this checkout, so integration credentials remain protected. |
 | Service checks | Read-only production checks for Google Sheets, Upstash state, and Supabase backup status return HTTP 200. Mailchimp campaign-report retrieval did not respond within 60 seconds and needs a timeout/caching investigation before it is relied on operationally. OpenAI has not been called because generation is billable. |
+| Security and reliability release | Merged to `main` as `4daa131` and deployed to production. Browser access is protected by Vercel-held Basic Auth; user-facing APIs inherit the same gate. Webhook sync work uses Next.js `after`, locks last 360 seconds, and campaign reports use a 20-second timeout with a five-minute Redis cache/stale fallback. |
 | Local verification | Dependencies install successfully and production compilation/type checking completes. Static build completion requires a valid local Supabase credential, which cannot be pulled under the current Vercel sensitive-variable policy. |
 | Deployment access | The direct Vercel URL redirects to Vercel authentication, indicating Deployment Protection is enabled. Confirm that this is intentional for the intended CRM users. |
 | Production URL | `https://mc.xxiihk.com` is attached to the active production deployment, is configured as Production `NEXT_PUBLIC_APP_URL`, and returns HTTP 200 at `/dashboard`. `mailchimpsync.xxiihk.com` is an obsolete, misconfigured alias; retire it only after confirming it has no remaining users or integrations. |
@@ -55,11 +56,11 @@ Update `.env.example` in a later hardening change: it is missing several active 
 
 ## Phase 3 — Correct production controls before enabling full automation
 
-1. Add application authentication and authorization to the dashboard and every state-changing route. At present, unauthenticated callers can trigger syncs, imports, schedules, OpenAI generation, and Mailchimp draft creation.
-2. Add an explicit Vercel Cron entry for `GET /api/sync` at the agreed interval. The committed `vercel.json` only schedules daily `/api/backup`; the documented hourly reconciliation is therefore not currently configured.
-3. Replace the webhook route's fire-and-forget background sync with a durable job or a platform-supported post-response task. A serverless invocation may end after returning the immediate `accepted` response.
-4. Align the sync lock TTL with the 300-second route duration, or use an atomic Redis lock with safe renewal. Its current 120-second expiry can permit overlapping long syncs.
-5. Decide and document the desired tag-removal policy. The current behavior is additive only.
+1. Completed: browser access is protected by `CRM_BASIC_AUTH_USER` and `CRM_BASIC_AUTH_PASSWORD`, stored as Production Vercel secrets. Webhooks and cron routes retain handler-level secret validation.
+2. Completed for Vercel Hobby: the daily `/api/backup` cron remains in Vercel, while `scripts/apps-script.gs` now includes `hourlySync` for an hourly Google Apps Script reconciliation trigger. Install that trigger in the source spreadsheet.
+3. Completed: the webhook uses Next.js `after` rather than a detached promise, so the sync stays attached to the serverless invocation after Apps Script receives its acknowledgement.
+4. Completed: the sync lock now lasts 360 seconds, safely exceeding the 300-second function duration.
+5. Pending policy decision: tags remain additive; no automatic removal occurs.
 
 ## Phase 4 — Validate without changing production data
 
