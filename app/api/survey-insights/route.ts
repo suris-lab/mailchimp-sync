@@ -10,13 +10,18 @@ import type {
 
 const SURVEY_SHEET_ID = "1xXYioBArLe4uVlWKmRaY8ri8DXTc0OzaHiG3ZvRcITU";
 // This route NEVER reads from process.env.SHEET_ID (CRM). Always SURVEY_SHEET_ID.
-const KV_KEY   = "survey:insights_2026_v2";
+const KV_KEY   = "survey:insights_2026_v3";
 const CACHE_TTL = 300; // 5 minutes — live survey data
 
 // Priority score weights (0–1, must sum to 1.0)
 const WEIGHTS = { importance: 0.40, satisfaction: 0.35, comments: 0.25 };
 
-// ── Column map — single "Response" sheet (A–AN, 40 columns) ────────────────
+// ── Canonical column map ────────────────────────────────────────────────────
+//
+// The original survey stored checkbox/rating groups in packed cells. The 2026
+// WPForms export stores each choice/rating item in its own column (A–EN). Rows
+// are normalised back to these canonical keys before the analysis runs so both
+// layouts remain supported.
 
 type Row = Record<string, string>;
 
@@ -59,6 +64,7 @@ const R = {
   dogs_on_balcony:      "25. Would you support allowing dogs on the Club balcony under clearly defined rules? 您是否支持在清晰規則下，允許會員攜同狗隻進入本會露台？ *",
   core_values:          "26. Is there any core value that you believe could represent HHYC? 您認為什麼最能代表本會的核心價值？",
   social_responsibility: "27. Which areas of social responsibility do you think HHYC should contribute more to? 您認為本會應在哪些社會責任範疇作出更多貢獻？",
+  social_responsibility_other: "27a. Please specify 請註明",
   final_comments:       "28. Is there anything else you would like the Club, General Committee, or management team to know? 您還有其他任何想法，希望讓本會、執行委員會或管理團隊了解嗎？",
 } as const;
 
@@ -72,7 +78,7 @@ const NOT_APPLICABLE = [
   "Not applicable / I do not use this", "Not Applicable", "N/A", "n/a",
 ];
 
-// Q24 privilege value labels → numeric (different scale from RATING_TEXT_MAP)
+// Q21 privilege value labels → numeric (different scale from RATING_TEXT_MAP)
 const PRIVILEGE_VALUE_MAP: Record<string, number> = {
   "Not valuable": 1, "Slightly valuable": 2, "Moderately valuable": 3,
   "Valuable": 4, "Very valuable": 5,
@@ -111,7 +117,7 @@ function parseMultiSelect(raw: string): string[] {
   return raw.split("\n").map((s) => normBilingual(s)).filter(Boolean);
 }
 
-// Q23: referral programme awareness (Yes/No)
+// Q20: referral programme awareness (Yes/No)
 function parseReferralAware(raw: string | undefined): "yes" | "no" | null {
   if (!raw) return null;
   const n = normBilingual(raw).toLowerCase();
@@ -120,7 +126,7 @@ function parseReferralAware(raw: string | undefined): "yes" | "no" | null {
   return null;
 }
 
-// Q24: privilege value rating (distinct 5-point scale + "not aware" opt-out → null)
+// Q21: privilege value rating (distinct 5-point scale + "not aware" opt-out → null)
 function parsePrivilegeValue(raw: string | undefined): number | null {
   if (!raw) return null;
   const n = normBilingual(raw);
@@ -139,6 +145,143 @@ function normBilingual(raw: string): string {
     .replace(/\s+/g, " ")
     .trim();
   return stripped || raw.trim();
+}
+
+// ── WPForms split-column schema normalisation ───────────────────────────────
+
+function headerKey(raw: string): string {
+  return normBilingual(raw)
+    .replace(/\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function populatedEntries(row: Row): [string, string][] {
+  return Object.entries(row).filter(([, value]) => String(value ?? "").trim() !== "");
+}
+
+function findValue(row: Row, phrases: string[]): string {
+  const needles = phrases.map(headerKey);
+  const match = populatedEntries(row).find(([header]) => {
+    const key = headerKey(header);
+    return needles.some((needle) => key.includes(needle));
+  });
+  return match?.[1]?.trim() ?? "";
+}
+
+function findQuestionValue(row: Row, prefixes: string[]): string {
+  const lowerPrefixes = prefixes.map((prefix) => prefix.toLowerCase());
+  const match = populatedEntries(row).find(([header]) => {
+    const key = headerKey(header);
+    return lowerPrefixes.some((prefix) => key.startsWith(prefix));
+  });
+  return match?.[1]?.trim() ?? "";
+}
+
+function groupValue(row: Row, phrases: string[], ratings = false): string {
+  const needles = phrases.map(headerKey);
+  const matches = populatedEntries(row).filter(([header]) => {
+    const key = headerKey(header);
+    return needles.some((needle) => key.includes(needle));
+  });
+  if (matches.length === 0) return "";
+
+  // Packed legacy fields have no option suffix in the header; keep the cell as-is.
+  const hasSplitColumns = matches.some(([header]) => normBilingual(header).includes(":"));
+  if (!hasSplitColumns) return matches.map(([, value]) => value.trim()).filter(Boolean).join("\n");
+
+  if (!ratings) {
+    return matches.map(([, value]) => value.trim()).filter(Boolean).join("\n");
+  }
+
+  // Rebuild the alternating "Category\nRating" format expected by parseSubRatings().
+  return matches.flatMap(([header, value]) => {
+    const cleanHeader = normBilingual(header);
+    const colon = cleanHeader.lastIndexOf(":");
+    const category = colon >= 0 ? cleanHeader.slice(colon + 1).trim() : cleanHeader;
+    return category ? [category, value.trim()] : [];
+  }).join("\n");
+}
+
+function isSplitColumnSchema(rows: Row[]): boolean {
+  if (rows.length === 0) return false;
+  const headers = Object.keys(rows[0]);
+  return headers.length > 80 || headers.some((header) =>
+    headerKey(header).startsWith("9. clubhouse and facilities") && normBilingual(header).includes(":"),
+  );
+}
+
+function normalizeSurveyRows(rows: Row[]): Row[] {
+  const splitSchema = isSplitColumnSchema(rows);
+
+  return rows.map((row) => {
+    const corporateMarker = findValue(row, ["corporate membership"]);
+    const corporateId = findValue(row, ["corporate member id"]);
+    const memberId = findValue(row, ["membership number"]);
+    const legacyMembershipType = findValue(row, ["what is your membership category"]);
+    const membershipType = legacyMembershipType ||
+      (corporateMarker || corporateId ? "Corporate Member" : memberId ? "Individual Member" : "Unknown");
+
+    return {
+      ...row,
+      [R.membership_category]: membershipType,
+      [R.membership_cat_other]: findQuestionValue(row, ["1a."]),
+      [R.membership_length]: findValue(row, ["how long have you been a member of hhyc"]),
+      [R.main_usage]: groupValue(row, [
+        "which of the following facilities or activities do you use most often",
+        "which of the following best describes how you mainly use the club",
+      ]),
+      [R.main_usage_other]: findQuestionValue(row, ["3a."]),
+      [R.visit_frequency]: findValue(row, ["how often do you visit the club"]),
+      [R.satisfaction_overall]: findValue(row, ["overall, how satisfied are you with your hhyc membership experience"]),
+      [R.nps_score]: findValue(row, ["how likely are you to recommend hhyc"]),
+      [R.nps_reason]: findValue(row, ["what is the main reason for your score above"]),
+      [R.improvement_trend]: findValue(row, [
+        "compared with one year ago, your impression of the club is",
+        "compared with one year ago, do you feel the club has",
+      ]),
+      [R.best_thing]: findValue(row, ["what is the one thing hhyc currently does best"]),
+      [R.improve_thing]: findValue(row, ["what is the one thing hhyc most needs to improve"]),
+      [R.marine_boatyard_sat]: findValue(row, ["overall, how satisfied are you with the current physical condition and maintenance"]),
+      [R.marine_boatyard_freq]: findValue(row, ["how frequently do you think the club should review and carry out necessary upgrades"]),
+      [R.clubhouse_ratings]: groupValue(row, ["clubhouse and facilities"], true),
+      [R.additional_facilities]: groupValue(row, ["which additional facilities would you like the club to consider"]),
+      [R.fnb_ratings]: groupValue(row, ["food and beverage"], true),
+      [R.marine_ratings]: groupValue(row, ["marine facilities and services"], true),
+      [R.sailing_ratings]: groupValue(row, ["sailing activities and programmes"], true),
+      [R.most_important]: groupValue(row, ["which areas are most important to your overall satisfaction"]),
+      [R.most_important_other]: findQuestionValue(row, splitSchema ? ["13a."] : ["15a."]),
+      [R.priority_improve]: groupValue(row, ["where should the club prioritise improvement"]),
+      [R.priority_other]: findQuestionValue(row, splitSchema ? ["14a."] : ["16a."]),
+      [R.highest_priority]: findValue(row, ["which one should be the highest priority and why"]),
+      [R.comm_satisfaction]: findValue(row, ["how satisfied are you with the club's communication with members"]),
+      [R.comm_channels]: groupValue(row, [
+        "which channels do you usually receive club information from",
+        "which channels do you usually use to receive club information",
+      ]),
+      [R.comm_channels_other]: findQuestionValue(row, splitSchema ? ["16a."] : ["19a."]),
+      [R.comm_info_wanted]: groupValue(row, ["what type of club information would you like to receive more clearly or more regularly"]),
+      [R.comm_info_other]: findQuestionValue(row, splitSchema ? ["17a."] : ["20a."]),
+      [R.website_rating]: findValue(row, ["how would you rate the clarity of the club website"]),
+      [R.membership_value]: findValue(row, ["how would you rate the overall value of your hhyc membership"]),
+      [R.referral_aware]: findValue(row, ["were you aware of hhyc's existing member referral programme"]),
+      [R.referral_attractive]: findValue(row, ["how attractive is the existing member referral programme to you"]),
+      [R.referral_improve]: findValue(row, ["what would make the member referral programme more attractive to you"]),
+      [R.privilege_value]: findValue(row, ["how valuable do you find the privileges and benefits currently available"]),
+      [R.dogs_on_balcony]: findValue(row, ["would you support allowing dogs on the club balcony"]),
+      [R.core_values]: findValue(row, [
+        "which core value do you think best represents hhyc",
+        "is there any core value that you believe could represent hhyc",
+      ]),
+      [R.social_responsibility]: findValue(row, [
+        "what do you believe is the most effective approach to social responsibility",
+        "which areas of social responsibility do you think hhyc should contribute more to",
+      ]),
+      [R.social_responsibility_other]: splitSchema ? findQuestionValue(row, ["24a."]) : "",
+      [R.final_comments]: findValue(row, ["is there anything else you would like the club, general committee, or management team to know"]),
+    };
+  });
 }
 
 // Average of a number array, ignoring nulls
@@ -424,7 +567,7 @@ function buildActionItems(areas: SurveyAreaStat[], themes: CommentTheme[], n: nu
 
 // ── Main computation ──────────────────────────────────────────────────────────
 
-function computeInsights(rows: Row[]): SurveyInsights {
+function computeInsights(rows: Row[], sourceSheet = "Response"): SurveyInsights {
   const total = rows.length;
 
   // ── Overall satisfaction ─────────────────────────────────────────────────
@@ -445,7 +588,7 @@ function computeInsights(rows: Row[]): SurveyInsights {
   const npsScore   = Math.round(((promoters - detractors) / npsTotal) * 100);
   const avgNps     = avg(npsValues);
 
-  // ── Priority frequencies (Q15 + Q16) ─────────────────────────────────────
+  // ── Priority frequencies (Q13 + Q14 in the revised survey) ───────────────
   const priFreq: Record<string, number> = {};
   for (const row of rows) {
     for (const item of [...parseMultiSelect(row[R.most_important]), ...parseMultiSelect(row[R.priority_improve])]) {
@@ -623,13 +766,13 @@ function computeInsights(rows: Row[]): SurveyInsights {
   const websiteVals = rows.map((r) => parseRating(r[R.website_rating])).filter((v): v is number => v !== null);
   const valueVals   = rows.map((r) => parseRating(r[R.membership_value])).filter((v): v is number => v !== null);
 
-  // Referral programme awareness (Q23 — Yes / No)
+  // Referral programme awareness (Q20 — Yes / No)
   const referralVals = rows.map((r) => parseReferralAware(r[R.referral_aware]));
   const referralYes  = referralVals.filter((v) => v === "yes").length;
   const referralNo   = referralVals.filter((v) => v === "no").length;
   const referralN    = referralVals.filter((v) => v !== null).length || 1;
 
-  // Member privilege value (Q24 — 5-point scale, "not aware" excluded)
+  // Member privilege value (Q21 — 5-point scale, "not aware" excluded)
   const privVals          = rows.map((r) => parsePrivilegeValue(r[R.privilege_value]));
   const avgPrivilegeValue = avg(privVals);
   const privNotAwareCount = rows.filter((r) => normBilingual(r[R.privilege_value] ?? "").toLowerCase().startsWith("i am not aware")).length;
@@ -641,7 +784,7 @@ function computeInsights(rows: Row[]): SurveyInsights {
     }
   }
 
-  // Referral programme attractiveness (Q23a — conditional, only answered when Q23 = Yes)
+  // Referral programme attractiveness (Q20a — conditional, only answered when Q20 = Yes)
   const refAttrVals = rows
     .map((r) => parseRating(r[R.referral_attractive]))
     .filter((v): v is number => v !== null);
@@ -654,29 +797,34 @@ function computeInsights(rows: Row[]): SurveyInsights {
 
   // ── New questions ─────────────────────────────────────────────────────────
 
-  // Qc — Marine & Boatyard satisfaction (1–5)
+  // C — Marine & Boatyard satisfaction (1–5)
   const marineBoatyardVals = rows.map((r) => parseRating(r[R.marine_boatyard_sat])).filter((v): v is number => v !== null);
   const marineBoatyardDist: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
   for (const v of marineBoatyardVals) marineBoatyardDist[String(v)]++;
 
-  // Qca — Marine upgrade frequency
+  // Ca — Marine upgrade frequency
   const marine_boatyard_upgrade_freq = freqDist(rows, R.marine_boatyard_freq);
 
-  // Q11a — Additional facilities wanted (multi-select)
+  // Q9a — Additional facilities wanted (multi-select)
   const additional_facilities = freqDist(rows, R.additional_facilities, true);
 
-  // Q25 — Dogs on balcony (categorical with 3+ options)
+  // Q22 — Dogs on balcony (categorical with 3+ options)
   const dogs_on_balcony = freqDist(rows, R.dogs_on_balcony);
 
-  // Q26 — Core values (open text or multi-select)
+  // Q23 — Core values
   const core_values = freqDist(rows, R.core_values, true);
 
-  // Q27 — Social responsibility (multi-select)
+  // Q24 — Social responsibility
   const social_responsibility = freqDist(rows, R.social_responsibility, true);
 
   // ── Comment collection + theme coding ─────────────────────────────────────
   const allComments: { segment?: string; lang?: "en" | "zh"; text: string }[] = [];
-  const textSources = [R.nps_reason, R.best_thing, R.improve_thing, R.highest_priority, R.referral_improve, R.final_comments, R.main_usage_other, R.core_values];
+  const textSources = [
+    R.nps_reason, R.best_thing, R.improve_thing, R.highest_priority,
+    R.referral_improve, R.final_comments, R.main_usage_other,
+    R.most_important_other, R.priority_other, R.comm_channels_other,
+    R.comm_info_other, R.social_responsibility_other,
+  ];
   for (const row of rows) {
     const seg = row[R.membership_category] ? normBilingual(row[R.membership_category]) : undefined;
     for (const field of textSources) {
@@ -697,13 +845,13 @@ function computeInsights(rows: Row[]): SurveyInsights {
     const sample = rows[0];
     if (!sample[R.satisfaction_overall]) missingFields.push("Q5 overall satisfaction");
     if (!sample[R.nps_score])            missingFields.push("Q6 NPS score");
-    if (!sample[R.membership_category])  missingFields.push("Q1 membership category");
+    if (!sample[R.membership_category])  missingFields.push("Membership type");
   }
 
   const data_quality: SurveyDataQuality = {
     total_rows: rows.length,
     valid_rows: rows.filter((r) => r[R.satisfaction_overall] || r[R.nps_score]).length,
-    source_sheet: "Response (single sheet)",
+    source_sheet: sourceSheet,
     missing_fields: missingFields,
   };
 
@@ -772,19 +920,25 @@ export async function GET(request: Request) {
       }
     }
 
-    // Single sheet read — Response2 no longer exists
-    const rows = await readRawSheet(SURVEY_SHEET_ID, "Response!A:AZ");
+    // The revised WPForms export spans A–EN (144 columns).
+    const rawRows = await readRawSheet(SURVEY_SHEET_ID, "Response!A:EN");
+    const splitSchema = isSplitColumnSchema(rawRows);
+    const rows = normalizeSurveyRows(rawRows);
 
     if (debug) {
       return NextResponse.json({
-        headers: rows.length > 0 ? Object.keys(rows[0]) : [],
+        headers: rawRows.length > 0 ? Object.keys(rawRows[0]) : [],
+        header_count: rawRows.length > 0 ? Object.keys(rawRows[0]).length : 0,
         total_rows: rows.length,
-        sample: rows.slice(0, 2),
+        schema: splitSchema ? "wpforms_split_columns_v2026" : "legacy_packed_columns",
         source_sheet: "Response",
       });
     }
 
-    const payload = computeInsights(rows);
+    const payload = computeInsights(
+      rows,
+      splitSchema ? "Response (WPForms 144-column export)" : "Response (legacy packed export)",
+    );
     try { await kvSet(KV_KEY, payload, CACHE_TTL); } catch { /* non-fatal */ }
     return NextResponse.json(payload);
   } catch (err) {

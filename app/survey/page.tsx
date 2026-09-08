@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Printer } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ReferenceLine, Cell,
@@ -318,7 +318,7 @@ function NpsSection({ data }: { data: SurveyInsights }) {
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: GREY_400 }} />Passives (7–8)</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: GREY_700 }} />Promoters (9–10)</span>
           </div>
-          <p className="text-[10px] text-gray-400 mt-4 uppercase tracking-widest font-semibold">NPS by Membership Category</p>
+          <p className="text-[10px] text-gray-400 mt-4 uppercase tracking-widest font-semibold">NPS by Membership Type</p>
           <div className="mt-2 space-y-1">
             {Object.entries(by_membership_category).map(([seg, stat]) => (
               <div key={seg} className="flex items-center justify-between text-xs">
@@ -374,7 +374,7 @@ function CommunicationsSection({ data }: { data: SurveyInsights }) {
     <section>
       <SectionTitle
         label="Communications"
-        sub="Satisfaction (Q18) · Channel preferences (Q19) · Content wanted (Q20) · Website rating (Q21)"
+        sub="Satisfaction (Q15) · Channel preferences (Q16) · Content wanted (Q17) · Website rating (Q18)"
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -383,14 +383,14 @@ function CommunicationsSection({ data }: { data: SurveyInsights }) {
           {/* Two scalar scores */}
           <div className="flex gap-6 mb-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Comm. Satisfaction (Q18)</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Comm. Satisfaction (Q15)</p>
               <p className="text-4xl font-black tabular-nums mt-1" style={{ color: satColor(data.comm_satisfaction) }}>
                 {data.comm_satisfaction > 0 ? fmt1(data.comm_satisfaction) : "—"}
               </p>
               <p className="text-[10px] text-gray-400 mt-0.5">out of 5</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Website Rating (Q21)</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Website Rating (Q18)</p>
               <p className="text-4xl font-black tabular-nums mt-1" style={{ color: satColor(data.website_rating) }}>
                 {data.website_rating > 0 ? fmt1(data.website_rating) : "—"}
               </p>
@@ -398,9 +398,9 @@ function CommunicationsSection({ data }: { data: SurveyInsights }) {
             </div>
           </div>
 
-          {/* Q19 — channel preferences */}
+          {/* Q16 — channel preferences */}
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
-            Preferred Channels (Q19)
+            Preferred Channels (Q16)
           </p>
           {channels.length === 0 ? (
             <p className="text-[10px] text-gray-400">No responses yet</p>
@@ -421,10 +421,10 @@ function CommunicationsSection({ data }: { data: SurveyInsights }) {
           )}
         </Card>
 
-        {/* Q20 — content types wanted */}
+        {/* Q17 — content types wanted */}
         <Card>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">
-            Content Members Want More Of (Q20)
+            Content Members Want More Of (Q17)
           </p>
           {infoWanted.length === 0 ? (
             <p className="text-[10px] text-gray-400">No responses yet</p>
@@ -478,7 +478,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
     <section>
       <SectionTitle
         label="Membership & Benefits"
-        sub="Referral programme awareness (Q23) · Attractiveness (Q23a) · Member privilege value (Q24)"
+        sub="Referral programme awareness (Q20) · Attractiveness (Q20a) · Member privilege value (Q21)"
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -512,10 +512,10 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: GREY_700 }} />Yes</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: HEBE_RED }} />No</span>
           </div>
-          {/* Q23a attractiveness rating — only shown to members who said Yes */}
+          {/* Q20a attractiveness rating — only shown to members who said Yes */}
           <div className="mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
-              Attractiveness Rating (Q23a · Yes respondents only)
+              Attractiveness Rating (Q20a · Yes respondents only)
             </p>
             {attrEntries.length === 0 ? (
               <p className="text-[10px] text-gray-400">No responses yet</p>
@@ -538,7 +538,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
               </div>
             )}
             <p className="text-[10px] text-gray-400 mt-2">
-              Q23b (open): improvement comments included in Comment Themes.
+              Q20b (open): improvement comments included in Comment Themes.
             </p>
           </div>
         </Card>
@@ -588,7 +588,7 @@ function MembershipBenefitsSection({ data }: { data: SurveyInsights }) {
   );
 }
 
-// ── Facilities Wishlist (Q11a) ────────────────────────────────────────────────
+// ── Facilities Wishlist (Q9a) ─────────────────────────────────────────────────
 
 function FacilitiesWishlistSection({ data }: { data: SurveyInsights }) {
   const items = data.additional_facilities ?? [];
@@ -596,7 +596,7 @@ function FacilitiesWishlistSection({ data }: { data: SurveyInsights }) {
   const maxCount = items[0]?.count || 1;
   return (
     <section>
-      <SectionTitle label="Facilities Wishlist" sub="Additional facilities members would like (Q11a) — multi-select" />
+      <SectionTitle label="Facilities Wishlist" sub="Additional facilities members would like (Q9a) — multi-select" />
       <Card>
         <div className="space-y-2">
           {items.map(({ label, count, pct }, i) => (
@@ -621,7 +621,7 @@ function FacilitiesWishlistSection({ data }: { data: SurveyInsights }) {
   );
 }
 
-// ── Marine & Boatyard (Qc, Qca) ─────────────────────────────────────────────
+// ── Marine & Boatyard (C, Ca) ───────────────────────────────────────────────
 
 function MarineBoatyardSection({ data }: { data: SurveyInsights }) {
   const satScore = data.marine_boatyard_satisfaction ?? 0;
@@ -632,7 +632,7 @@ function MarineBoatyardSection({ data }: { data: SurveyInsights }) {
   const maxFreq = upgradeFreq[0]?.count || 1;
   return (
     <section>
-      <SectionTitle label="Marine & Boatyard" sub="Physical condition satisfaction (Qc) · Upgrade review frequency (Qca)" />
+      <SectionTitle label="Marine & Boatyard" sub="Physical condition satisfaction (C) · Upgrade review frequency (Ca)" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Condition Satisfaction</p>
@@ -656,7 +656,7 @@ function MarineBoatyardSection({ data }: { data: SurveyInsights }) {
           )}
         </Card>
         <Card>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Upgrade Review Frequency (Qca)</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Upgrade Review Frequency (Ca)</p>
           <div className="space-y-2">
             {upgradeFreq.map(({ label, count, pct }) => (
               <div key={label}>
@@ -676,7 +676,7 @@ function MarineBoatyardSection({ data }: { data: SurveyInsights }) {
   );
 }
 
-// ── Community & Values (Q25, Q26, Q27) ───────────────────────────────────────
+// ── Community & Values (Q22, Q23, Q24) ───────────────────────────────────────
 
 function CommunityValuesSection({ data }: { data: SurveyInsights }) {
   const dogs = data.dogs_on_balcony ?? [];
@@ -688,10 +688,10 @@ function CommunityValuesSection({ data }: { data: SurveyInsights }) {
   const maxSr   = sr[0]?.count || 1;
   return (
     <section>
-      <SectionTitle label="Community & Values" sub="Dogs on balcony (Q25) · Core values (Q26) · Social responsibility (Q27)" />
+      <SectionTitle label="Community & Values" sub="Dogs on balcony (Q22) · Core values (Q23) · Social responsibility (Q24)" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Dogs on Balcony (Q25)</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Dogs on Balcony (Q22)</p>
           <div className="space-y-2">
             {dogs.map(({ label, count, pct }) => (
               <div key={label}>
@@ -707,7 +707,7 @@ function CommunityValuesSection({ data }: { data: SurveyInsights }) {
           </div>
         </Card>
         <Card>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Core Values (Q26)</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Core Values (Q23)</p>
           <div className="space-y-2">
             {values.slice(0, 8).map(({ label, count, pct }, i) => (
               <div key={label}>
@@ -723,7 +723,7 @@ function CommunityValuesSection({ data }: { data: SurveyInsights }) {
           </div>
         </Card>
         <Card>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Social Responsibility (Q27)</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Social Responsibility (Q24)</p>
           <div className="space-y-2">
             {sr.slice(0, 8).map(({ label, count, pct }, i) => (
               <div key={label}>
@@ -808,7 +808,7 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
     <section>
       <SectionTitle
         label="Importance vs Satisfaction Matrix"
-        sub="Importance = priority selection frequency (Q15+Q16) · Satisfaction = sub-category avg"
+        sub="Importance = priority selection frequency (Q13+Q14) · Satisfaction = sub-category avg"
       />
       <Card>
         {/* Quadrant legend */}
@@ -951,7 +951,7 @@ function MatrixSection({ data }: { data: SurveyInsights }) {
         )}
 
         <p className="text-[10px] text-gray-400 mt-3">
-          Note: Importance is derived from priority selection frequency (Q15+Q16), not a direct importance rating.
+          Note: Importance is derived from priority selection frequency (Q13+Q14), not a direct importance rating.
         </p>
       </Card>
     </section>
@@ -974,7 +974,7 @@ function SegmentSection({ data }: { data: SurveyInsights }) {
   };
 
   const FILTER_LABELS: Record<SegmentFilter, string> = {
-    membership_category: "Membership Category",
+    membership_category: "Membership Type",
     tenure:              "Length of Membership",
     visit_freq:          "Visit Frequency",
     usage_type:          "Main Usage Type",
@@ -1080,7 +1080,7 @@ function PrioritySection({ data }: { data: SurveyInsights }) {
 
   return (
     <section>
-      <SectionTitle label="Priority Improvement Areas" sub="Combined frequency from Q15 (most important) and Q16 (priority improvement)" />
+      <SectionTitle label="Priority Improvement Areas" sub="Combined frequency from Q13 (most important) and Q14 (priority improvement)" />
       <Card>
         <div className="space-y-2.5">
           {priorities.length === 0 ? (
@@ -1229,12 +1229,12 @@ function ProfileSection({ data }: { data: SurveyInsights }) {
 
   return (
     <section>
-      <SectionTitle label="Member Profile" sub="Visit frequency · Tenure · Membership category" />
+      <SectionTitle label="Member Profile" sub="Visit frequency · Tenure · Membership type" />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: "Visit Frequency",          data: makePie(data.visit_freq_dist) },
           { label: "Length of Membership",      data: makePie(data.tenure_dist) },
-          { label: "Membership Category",       data: makePie(data.membership_category_dist) },
+          { label: "Membership Type",           data: makePie(data.membership_category_dist) },
         ].map(({ label, data: pieData }) => (
           <Card key={label}>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">{label}</p>
@@ -1405,7 +1405,18 @@ export default function SurveyPage() {
               </p>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2 print:hidden">
+            <button
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-800 px-2.5 py-2
+                         text-[10px] font-semibold text-gray-500 dark:text-gray-400 hover:text-hebe-red hover:border-hebe-red/30 transition-colors"
+              title="Print or save this report as PDF"
+            >
+              <Printer size={12} />
+              <span className="hidden sm:inline">Print report</span>
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
